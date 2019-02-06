@@ -21,6 +21,7 @@ func TestFilterParse(t *testing.T) {
 		{input: "age>=35", filter: Filter{Name: "age", Operation: GTE, Value: "35"}},
 		{input: "hobbies~=chess", filter: Filter{Name: "hobbies", Operation: LK, Value: "chess"}},
 		{input: "hobbies|=chess", filter: Filter{Name: "hobbies", Operation: IN, Value: "chess"}},
+		{input: "hobbies|=chess|go", filter: Filter{Name: "hobbies", Operation: IN, Value: "chess|go"}},
 		{input: "", err: ErrParamLength},
 		{input: "asdsds", err: ErrInvalidOp},
 		{input: "abc=", err: ErrMissingNameValue},

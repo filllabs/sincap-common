@@ -2,6 +2,7 @@ package dbutil
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"sincap-common/resources/query"
 	"strconv"
@@ -31,8 +32,10 @@ func getCondition(condition []string, field string, value interface{}, operation
 	case query.LK:
 		condition = append(condition, "LIKE", "?")
 	case query.IN:
-		condition = append(condition, "IN", "(?)")
-		value = strings.Split(value.(string), "|")
+		params := strings.Split(value.(string), "|")
+		paramSection := strings.Repeat("?,", len(params))
+		condition = append(condition, "IN", "("+paramSection[0:len(paramSection)-1]+")")
+		value = params
 	}
 	return condition
 }
@@ -115,44 +118,23 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 			if kind == reflect.Ptr {
 				kind = fieldType.Type.Elem().Kind()
 			}
-			switch kind {
-			case reflect.String:
-				values = append(values, value)
-			case reflect.Int,
-				reflect.Int8,
-				reflect.Int16,
-				reflect.Int32,
-				reflect.Int64:
-				if i, e := strconv.Atoi(value.(string)); e == nil {
-					values = append(values, i)
+			if filter.Operation == query.IN {
+				inVals := strings.Split(value.(string), "|")
+				for i := 0; i < len(inVals); i++ {
+					var err error
+					values, err = convertValue(db, filter, typ, kind, values, inVals[i])
+					if err != nil {
+						return db
+					}
 				}
-			case reflect.Uint,
-				reflect.Uint8,
-				reflect.Uint16,
-				reflect.Uint32,
-				reflect.Uint64:
-				if i, e := strconv.ParseUint(value.(string), 10, 64); e == nil {
-					values = append(values, i)
-				}
-			case reflect.Float32,
-				reflect.Float64:
-				if i, e := strconv.ParseFloat(value.(string), 64); e == nil {
-					values = append(values, i)
-				}
-			case reflect.Bool:
-				values = append(values, value.(string) == "true")
-			case timeKind:
-				i, err := strconv.ParseInt(value.(string), 10, 64)
+			} else {
+				var err error
+				values, err = convertValue(db, filter, typ, kind, values, value)
 				if err != nil {
-					db.AddError(errors.New("QApi cannot parse date: " + value.(string) + " for " + filter.Name))
-					db.AddError(err)
 					return db
 				}
-				values = append(values, time.Unix(0, i*int64(time.Millisecond)))
-			default:
-				db.AddError(errors.New("Field type not supported for QApi " + typ.Name() + ":" + filter.Name))
-				return db
 			}
+
 		}
 		db = db.Where(strings.Join(where, " AND "), values...)
 	}
@@ -162,6 +144,48 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 	if len(q.Fields) > 0 {
 		db = db.Select(q.Fields)
 	}
-
 	return db
+}
+
+func convertValue(db *gorm.DB, filter query.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
+	switch kind {
+	case reflect.String:
+		values = append(values, value)
+	case reflect.Int,
+		reflect.Int8,
+		reflect.Int16,
+		reflect.Int32,
+		reflect.Int64:
+		if i, e := strconv.Atoi(value.(string)); e == nil {
+			values = append(values, i)
+		}
+	case reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64:
+		if i, e := strconv.ParseUint(value.(string), 10, 64); e == nil {
+			values = append(values, i)
+		}
+	case reflect.Float32,
+		reflect.Float64:
+		if i, e := strconv.ParseFloat(value.(string), 64); e == nil {
+			values = append(values, i)
+		}
+	case reflect.Bool:
+		values = append(values, value.(string) == "true")
+	case timeKind:
+		i, err := strconv.ParseInt(value.(string), 10, 64)
+		if err != nil {
+			db.AddError(fmt.Errorf("QApi cannot parse date: %s for %s", value.(string), filter.Name))
+			db.AddError(err)
+			return nil, err
+		}
+		values = append(values, time.Unix(0, i*int64(time.Millisecond)))
+	default:
+		err := fmt.Errorf("Field type not supported for QApi %s : %s", typ.Name(), filter.Name)
+		db.AddError(err)
+		return nil, err
+	}
+	return values, nil
 }
