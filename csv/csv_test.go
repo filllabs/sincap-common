@@ -36,7 +36,7 @@ type SampleIgnored struct {
 
 func TestRead(t *testing.T) {
 	typ := Sample{}
-	path, pErr := filepath.Abs("../../test/sampleCsv5000NoTitle.csv")
+	path, pErr := filepath.Abs("../test/sampleCsv5000NoTitle.csv")
 	assert.NoError(t, pErr, "Cant't find path")
 	csvFile, fErr := os.Open(path)
 	assert.NoError(t, fErr, "Cant't find file")
@@ -48,7 +48,7 @@ func TestRead(t *testing.T) {
 
 func TestReadTitle(t *testing.T) {
 	typ := Sample{}
-	path, pErr := filepath.Abs("../../test/sampleCsv5000Title.csv")
+	path, pErr := filepath.Abs("../test/sampleCsv5000Title.csv")
 	assert.NoError(t, pErr, "Cant't find path")
 	csvFile, fErr := os.Open(path)
 	assert.NoError(t, fErr, "Cant't find file")
@@ -60,7 +60,7 @@ func TestReadTitle(t *testing.T) {
 
 func TestReadMixedTitle(t *testing.T) {
 	typ := Sample{}
-	path, pErr := filepath.Abs("../../test/sampleCsv5000MixedTitle.csv")
+	path, pErr := filepath.Abs("../test/sampleCsv5000MixedTitle.csv")
 	assert.NoError(t, pErr, "Cant't find path")
 	csvFile, fErr := os.Open(path)
 	assert.NoError(t, fErr, "Cant't find file")
@@ -72,7 +72,7 @@ func TestReadMixedTitle(t *testing.T) {
 
 func TestReadIgnoredTitle(t *testing.T) {
 	typ := SampleIgnored{}
-	path, pErr := filepath.Abs("../../test/sampleCsv5000IgnoredTitle.csv")
+	path, pErr := filepath.Abs("../test/sampleCsv5000IgnoredTitle.csv")
 	assert.NoError(t, pErr, "Cant't find path")
 	csvFile, fErr := os.Open(path)
 	assert.NoError(t, fErr, "Cant't find file")

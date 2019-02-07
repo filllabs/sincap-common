@@ -16,12 +16,6 @@ go get -u github.com/gophertown/looper
 looper
 ```
 
-## Troubleshooting
-
-1045 Access Denied error on MySql :
-
-- Be sure username and password is 'spin'
-- Be sure mysql service is up and running.
 
 ## Query API
 
