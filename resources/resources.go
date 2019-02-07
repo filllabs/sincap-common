@@ -4,8 +4,8 @@ package resources
 import (
 	"errors"
 	"net/http"
-	"sincap-common/json"
-	"sincap-common/random"
+	"gitlab.com/sincap/sincap-common/json"
+	"gitlab.com/sincap/sincap-common/random"
 	"strconv"
 
 	"github.com/go-chi/render"

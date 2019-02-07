@@ -2,9 +2,9 @@ package dbutil
 
 import (
 	"reflect"
-	"sincap-common/dbconn"
-	"sincap-common/logging"
-	"sincap-common/resources/query"
+	"gitlab.com/sincap/sincap-common/dbconn"
+	"gitlab.com/sincap/sincap-common/logging"
+	"gitlab.com/sincap/sincap-common/resources/query"
 
 	"github.com/fatih/structs"
 	"github.com/jinzhu/gorm"

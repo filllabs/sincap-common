@@ -6,8 +6,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"sincap-common/resources"
-	"sincap-common/types"
+	"gitlab.com/sincap/sincap-common/resources"
+	"gitlab.com/sincap/sincap-common/types"
 	"strconv"
 	"strings"
 )

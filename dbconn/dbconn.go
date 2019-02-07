@@ -1,7 +1,7 @@
 package dbconn
 
 import (
-	"sincap-common/logging"
+	"gitlab.com/sincap/sincap-common/logging"
 
 	"github.com/jinzhu/gorm"
 	"go.uber.org/zap"

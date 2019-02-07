@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"sincap-common/logging"
 
 	"strconv"
 	"strings"
 	"time"
 
+	"gitlab.com/sincap/sincap-common/logging"
 	"go.uber.org/zap"
 )
 

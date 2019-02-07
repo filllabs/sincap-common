@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sincap-common/resources/query"
+	"gitlab.com/sincap/sincap-common/resources/query"
 	"strconv"
 	"strings"
 	"time"

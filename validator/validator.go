@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
-	"sincap-common/json"
-	"sincap-common/resources"
+	"gitlab.com/sincap/sincap-common/json"
+	"gitlab.com/sincap/sincap-common/resources"
 
 	validator "gopkg.in/go-playground/validator.v9"
 )
