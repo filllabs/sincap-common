@@ -18,6 +18,7 @@ var timeKind = reflect.TypeOf(time.Time{}).Kind()
 
 const timeLayout = "02.01.2006"
 
+// CsvTag holds basic properties of csv tag
 type CsvTag struct {
 	Name   string
 	Ignore bool
