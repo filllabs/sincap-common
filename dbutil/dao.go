@@ -11,12 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var logger *zap.Logger
-
-func init() {
-	logger = logging.Logger.With(zap.String("source", "db.dao"))
-}
-
 // List calls ListByQuery or ListAll according to the query parameter
 func List(DB *gorm.DB, typ interface{}, query *query.Query, preloads ...string) (interface{}, int, error) {
 	if query == nil {
@@ -88,7 +82,7 @@ func ListAll(DB *gorm.DB, typ interface{}, preloads []string) (interface{}, int,
 func Create(DB *gorm.DB, record interface{}) error {
 	result := DB.Create(record)
 	if result.Error != nil {
-		logger.Error("Create error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
+		logging.Logger.Error("Create error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
 	}
 	return result.Error
 }
@@ -97,7 +91,7 @@ func Create(DB *gorm.DB, record interface{}) error {
 func Read(DB *gorm.DB, record interface{}, id uint) error {
 	result := DB.First(record, id)
 	if result.Error != nil {
-		logger.Error("Read error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Uint("id", id))
+		logging.Logger.Error("Read error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Uint("id", id))
 	}
 	return result.Error
 }
@@ -106,7 +100,7 @@ func Read(DB *gorm.DB, record interface{}, id uint) error {
 func Update(DB *gorm.DB, record interface{}) error {
 	result := DB.Save(record)
 	if result.Error != nil {
-		logger.Error("Update error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
+		logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
 	}
 	return result.Error
 }
@@ -115,7 +109,7 @@ func Update(DB *gorm.DB, record interface{}) error {
 func Delete(DB *gorm.DB, record interface{}) error {
 	result := DB.Delete(record)
 	if result.Error != nil {
-		logger.Error("Delete error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
+		logging.Logger.Error("Delete error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
 	}
 	return result.Error
 }

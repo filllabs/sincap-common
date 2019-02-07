@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 	"sincap-common/logging"
+
 	"strconv"
 	"strings"
 	"time"
@@ -17,15 +18,7 @@ var timeKind = reflect.TypeOf(time.Time{}).Kind()
 
 const timeLayout = "02.01.2006"
 
-var logger *zap.Logger
-
-// Configure DB connection
-func init() {
-	logger = logging.Logger.With(zap.String("source", "common.csv"))
-}
-
-// Tag defines csv tag
-type Tag struct {
+type CsvTag struct {
 	Name   string
 	Ignore bool
 	Index  int
@@ -36,14 +29,14 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 	typ := reflect.TypeOf(t)
 	var recordArr []interface{}
 	fieldLen := typ.NumField()
-	logger.Debug("Type received", zap.Any("type", typ.String()), zap.Int("fieldLen", fieldLen))
+	logging.Logger.Debug("Type received", zap.Any("type", typ.String()), zap.Int("fieldLen", fieldLen))
 	reader := csv.NewReader(r)
 	reader.Comma = delimiter
 	reader.ReuseRecord = true
 	reader.FieldsPerRecord = -1
 	reader.TrimLeadingSpace = true
 
-	var tags []*Tag
+	var tags []*CsvTag
 	ignoredFieldCount := 0
 	for i := 0; i < fieldLen; i++ {
 		f := typ.Field(i)
@@ -53,17 +46,17 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 			if len(name) == 0 {
 				name = f.Name
 			}
-			ct := &Tag{Name: name, Ignore: name == "-", Index: i}
+			ct := &CsvTag{Name: name, Ignore: name == "-", Index: i}
 			tags = append(tags, ct)
 			if name == "-" {
 				ignoredFieldCount++
 			}
 		} else {
-			ct := &Tag{Name: f.Name, Ignore: false, Index: i}
+			ct := &CsvTag{Name: f.Name, Ignore: false, Index: i}
 			tags = append(tags, ct)
 		}
 	}
-	logger.Debug("Tags read", zap.Any("type", typ.String()), zap.Int("tags", len(tags)))
+	logging.Logger.Debug("Tags read", zap.Any("type", typ.String()), zap.Int("tags", len(tags)))
 
 	var columnIndexMatch []int
 	if hasTitleRow {
@@ -71,10 +64,10 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 		if err == io.EOF {
 			return recordArr, err
 		} else if err != nil {
-			logger.Error("Can't title row", zap.Error(err))
+			logging.Logger.Error("Can't title row", zap.Error(err))
 			return recordArr, err
 		}
-		logger.Debug("Titles read", zap.Any("titles", titles))
+		logging.Logger.Debug("Titles read", zap.Any("titles", titles))
 	outer:
 		for i := 0; i < len(tags); i++ {
 			tag := tags[i]
@@ -87,15 +80,15 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 			}
 			columnIndexMatch = append(columnIndexMatch, -1)
 		}
-		logger.Debug("Titles Matched", zap.Any("matches", columnIndexMatch))
+		logging.Logger.Debug("Titles Matched", zap.Any("matches", columnIndexMatch))
 	}
-	logger.Debug("Reading Rows")
+	logging.Logger.Debug("Reading Rows")
 	for rowIndex := 0; true; rowIndex++ {
 		var row []string
 		if line, err := reader.Read(); err == io.EOF {
 			break
 		} else if err != nil {
-			logger.Error("Can't read csv", zap.Error(err))
+			logging.Logger.Error("Can't read csv", zap.Error(err))
 			return recordArr, err
 		} else {
 			row = line

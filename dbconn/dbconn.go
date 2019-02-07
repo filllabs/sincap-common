@@ -13,7 +13,6 @@ import (
 
 // DB connection for all DB operatins
 var db = map[string]*gorm.DB{}
-var logger *zap.Logger
 
 // DBConfig holds database configuration
 type DBConfig struct {
@@ -26,7 +25,6 @@ type DBConfig struct {
 
 // Configure DB connection
 func Configure(dbConfs []DBConfig) {
-	logger = logging.Logger.With(zap.String("source", "db"))
 	gorm.AddNamingStrategy(&gorm.NamingStrategy{
 		DB: func(name string) string {
 			return name
@@ -48,18 +46,18 @@ func Configure(dbConfs []DBConfig) {
 		conn, err := gorm.Open(conf.Dialog, args...)
 
 		if err != nil {
-			logger.Fatal("DB Could not open connection.", zap.String("name", conf.Name), zap.Error(err))
+			logging.Logger.Fatal("DB Could not open connection.", zap.String("name", conf.Name), zap.Error(err))
 		}
 		if conf.LogMode {
 			conn.LogMode(conf.LogMode)
-			conn.SetLogger(zapgorm.New(logger))
+			conn.SetLogger(zapgorm.New(logging.Logger))
 		} else {
-			conn.SetLogger(zapgorm.New(logger))
+			conn.SetLogger(zapgorm.New(logging.Logger))
 		}
 		conn.SingularTable(true)
 		db[conf.Name] = conn.Set("gorm:association_autoupdate", false).Set("gorm:association_autocreate", false)
 
-		logger.Info("DB initialized", zap.String("name", conf.Name))
+		logging.Logger.Info("DB initialized", zap.String("name", conf.Name))
 	}
 }
 
@@ -72,10 +70,10 @@ func GetDefault() *gorm.DB {
 func Get(name string) *gorm.DB {
 	conn, ok := db[name]
 	if !ok {
-		logger.Error("DB is nil. Returning default", zap.String("name", name))
+		logging.Logger.Error("DB is nil. Returning default", zap.String("name", name))
 		conn, ok := db["default"]
 		if !ok {
-			logger.Fatal("DB Some fatal problems occured", zap.String("name", name))
+			logging.Logger.Fatal("DB Some fatal problems occured", zap.String("name", name))
 		}
 		return conn
 	}
