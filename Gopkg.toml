@@ -13,7 +13,7 @@
   name = "gopkg.in/olahol/melody.v1"
   version = "1.0.0"
 
-[[constraint]]
+[[override]]
   name = "go.uber.org/zap"
   version = "1.9.1"
 
