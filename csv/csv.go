@@ -79,6 +79,9 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 					continue outer
 				}
 			}
+			if !tag.Ignore {
+				return recordArr, fmt.Errorf("Required field not found on CSV Title:%s Index:%d", tag.Name, tag.Index)
+			}
 			columnIndexMatch = append(columnIndexMatch, -1)
 		}
 		logging.Logger.Debug("Titles Matched", zap.Any("matches", columnIndexMatch))
@@ -112,6 +115,9 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 				}
 			}
 			field := ins.Field(fIndex)
+			if cIndex == -1 {
+				continue
+			}
 			value := row[cIndex]
 
 			if value == "" {
