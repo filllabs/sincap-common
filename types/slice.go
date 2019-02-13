@@ -17,6 +17,19 @@ func SliceContains(s interface{}, e interface{}) bool {
 	return false
 }
 
+// SliceContainsReflect checks if a slice contains an element with reflection
+func SliceContainsReflect(s interface{}, e interface{}) bool {
+	slice := convertSliceToInterface(s)
+	e = PtrGetElem(e)
+	for _, a := range slice {
+		a = PtrGetElem(a)
+		if reflect.DeepEqual(a, e) {
+			return true
+		}
+	}
+	return false
+}
+
 // convertSliceToInterface takes a slice passed in as an interface{}
 // then converts the slice to a slice of interfaces
 func convertSliceToInterface(s interface{}) (slice []interface{}) {
