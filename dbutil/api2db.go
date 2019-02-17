@@ -1,13 +1,13 @@
 package dbutil
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
-	"gitlab.com/sincap/sincap-common/resources/query"
 	"strconv"
 	"strings"
 	"time"
+
+	"gitlab.com/sincap/sincap-common/resources/query"
 
 	"github.com/jinzhu/gorm"
 )
@@ -49,94 +49,12 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 		db = db.Order(strings.Join(q.Sort, ", "))
 	}
 	if len(q.Filter) > 0 {
-		var where []string
-		var values []interface{}
-		for i := range q.Filter {
-			filter := q.Filter[i]
-			var value interface{} = filter.Value
-			var condition []string
-			var fieldNames []string
-			isStruct := strings.ContainsRune(filter.Name, '.')
-			if isStruct {
-				table := typ.Name()
-				fieldNames = strings.Split(filter.Name, ".")
-				field := fieldNames[1]
-				f, ok := typ.FieldByName(fieldNames[0])
-				innerTableType := f.Type.Name()
-				if f.Type.Kind() == reflect.Ptr {
-					innerTableType = f.Type.Elem().Name()
-				}
-				innerTable := "`" + innerTableType + "`"
-				isPoly := ok && strings.Contains(f.Tag.Get("gorm"), "polymorphic:Holder")
-				if isPoly {
-					condition = append(condition, "ID", "= (", "SELECT HolderID FROM", innerTable, "WHERE (")
-					condition = getCondition(condition, field, value, filter.Operation)
-					condition = append(condition, "AND HolderID =", "`"+table+"`.ID", "AND HolderType =", "'"+table+"'", ")", ")")
-				} else {
-					condition = append(condition, fieldNames[0]+"ID", "IN (", "SELECT ID FROM", innerTable, "WHERE (")
-					condition = getCondition(condition, field, value, filter.Operation)
-					condition = append(condition, ")", ")")
-				}
-			} else {
-				condition = getCondition(condition, filter.Name, value, filter.Operation)
-			}
-
-			var fieldType reflect.StructField
-			var ok = false
-			if isStruct {
-				//Navigate names with range and find internal fieldType
-				var structField reflect.StructField
-				if len(fieldNames) > 0 {
-					structField, ok = typ.FieldByName(fieldNames[0])
-					len := len(fieldNames)
-					for i := 1; i < len; i++ {
-						if structField.Type.Kind() == reflect.Struct {
-							structField, ok = structField.Type.FieldByName(fieldNames[i])
-							if !ok {
-								break
-							}
-						} else if structField.Type.Kind() == reflect.Ptr {
-							if structField.Type.Elem().Kind() == reflect.Struct {
-								structField, ok = structField.Type.Elem().FieldByName(fieldNames[i])
-								if !ok {
-									break
-								}
-							}
-						}
-					}
-					fieldType = structField
-				}
-			} else {
-				fieldType, ok = typ.FieldByName(filter.Name)
-			}
-			if !ok {
-				db.AddError(errors.New("Can't find field for " + filter.Name))
-				return db
-			}
-			where = append(where, strings.Join(condition, " "))
-			kind := fieldType.Type.Kind()
-			if kind == reflect.Ptr {
-				kind = fieldType.Type.Elem().Kind()
-			}
-			if filter.Operation == query.IN {
-				inVals := strings.Split(value.(string), "|")
-				for i := 0; i < len(inVals); i++ {
-					var err error
-					values, err = convertValue(db, filter, typ, kind, values, inVals[i])
-					if err != nil {
-						return db
-					}
-				}
-			} else {
-				var err error
-				values, err = convertValue(db, filter, typ, kind, values, value)
-				if err != nil {
-					return db
-				}
-			}
-
+		where, values, err := filter2Sql(q.Filter, typ)
+		if err != nil {
+			db.AddError(err)
+			return db
 		}
-		db = db.Where(strings.Join(where, " AND "), values...)
+		db = db.Where(where, values...)
 	}
 	db = db.Offset(q.Offset)
 	db = db.Limit(q.Limit)
@@ -147,7 +65,133 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 	return db
 }
 
-func convertValue(db *gorm.DB, filter query.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
+func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}, error) {
+	var where []string
+	var values []interface{}
+	var targetField *reflect.StructField
+
+	// Convert all filters to a where condition with AND
+	for _, filter := range filters {
+		var condition []string
+		// var innerFieldFound = false
+
+		// Get field name with split (it will make inner field queries possible)
+		fieldNames := strings.Split(filter.Name, ".")
+
+		// If it has more than 1 field name it has inner fields (another table)
+		if len(fieldNames) > 1 {
+			if cond, f, err := generateQuery(fieldNames, 1, typ, filter); err == nil {
+				condition = append(condition, cond)
+				targetField = f
+			}
+
+		} else {
+			condition = getCondition(condition, filter.Name, filter.Value, filter.Operation)
+			field, isFieldFound := typ.FieldByName(filter.Name)
+			if !isFieldFound {
+				return "", values, fmt.Errorf("Can't find field for %s", filter.Name)
+			}
+			targetField = &field
+
+		}
+		where = append(where, strings.Join(condition, " "))
+		kind := extractRealType(*targetField).Kind()
+		if filter.Operation == query.IN {
+			inVals := strings.Split(filter.Value, "|")
+			for i := 0; i < len(inVals); i++ {
+				var err error
+				values, err = convertValue(filter, typ, kind, values, inVals[i])
+				if err != nil {
+					return "", values, err
+				}
+			}
+		} else {
+			var err error
+			values, err = convertValue(filter, typ, kind, values, filter.Value)
+			if err != nil {
+				return "", values, err
+			}
+		}
+
+	}
+	return strings.Join(where, " AND "), values, nil
+}
+
+func generateQuery(fieldNames []string, i int, structType reflect.Type, filter query.Filter) (string, *reflect.StructField, error) {
+
+	var condition []string
+
+	fieldName := fieldNames[i-1]
+	innerFieldName := fieldNames[i]
+	field, isFieldFound := structType.FieldByName(fieldName)
+	if !isFieldFound {
+		return "", nil, fmt.Errorf("Can't find struct: %s field: %s", structType.Name(), filter.Name)
+	}
+	innerField, isInnerFieldFound := extractRealType(field).FieldByName(innerFieldName)
+	if !isInnerFieldFound {
+		return "", nil, fmt.Errorf("Can't find struct: %s inner field: %s", extractRealType(field).Name(), filter.Name)
+	}
+
+	innerCond := ""
+	var targetField *reflect.StructField
+	var innerErr error
+	// first dive into inner fields
+	if i < len(fieldNames)-1 {
+		innerCond, targetField, innerErr = generateQuery(fieldNames, i+1, extractRealType(field), filter)
+		if innerErr != nil {
+			return "", targetField, innerErr
+		}
+	} else {
+		targetField = &innerField
+	}
+
+	table := extractRealType(field).Name()
+
+	if prefix, isPoly := getPolymorphicPrefix(&field); isPoly {
+		polyID := prefix + "ID"
+		polyType := prefix + "Type"
+		outerTable := structType.Name()
+		condition = append(condition, "ID", "= (", "SELECT", polyID, "FROM", table, "WHERE (")
+		if len(innerCond) > 0 {
+			condition = append(condition, innerCond)
+		} else {
+			condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
+		}
+		condition = append(condition, "AND", polyID, "=", "`"+outerTable+"`.ID", "AND", polyType, "=", "'"+outerTable+"'", ")", ")")
+	} else {
+		condition = append(condition, fieldName+"ID", "IN (", "SELECT ID FROM", table, "WHERE (")
+		if len(innerCond) > 0 {
+			condition = append(condition, innerCond)
+		} else {
+			condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
+		}
+		condition = append(condition, ")", ")")
+	}
+	return strings.Join(condition, " "), targetField, nil
+}
+
+func getPolymorphicPrefix(f *reflect.StructField) (string, bool) {
+	// get gorm tag
+	if tag, ok := f.Tag.Lookup("gorm"); ok {
+		props := strings.Split(tag, ";")
+		// find polymorphic info
+		for _, prop := range props {
+			if strings.HasPrefix(prop, "polymorphic:") {
+				return strings.TrimPrefix(prop, "polymorphic:"), true
+			}
+		}
+	}
+	return "", false
+}
+
+func extractRealType(field reflect.StructField) reflect.Type {
+	if field.Type.Kind() == reflect.Ptr {
+		return field.Type.Elem()
+	}
+	return field.Type
+}
+
+func convertValue(filter query.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
 	switch kind {
 	case reflect.String:
 		values = append(values, value)
@@ -177,15 +221,11 @@ func convertValue(db *gorm.DB, filter query.Filter, typ reflect.Type, kind refle
 	case timeKind:
 		i, err := strconv.ParseInt(value.(string), 10, 64)
 		if err != nil {
-			db.AddError(fmt.Errorf("QApi cannot parse date: %s for %s", value.(string), filter.Name))
-			db.AddError(err)
-			return nil, err
+			return nil, fmt.Errorf("QApi cannot parse date: %s for %s. Cause: %v", value.(string), filter.Name, err)
 		}
 		values = append(values, time.Unix(0, i*int64(time.Millisecond)))
 	default:
-		err := fmt.Errorf("Field type not supported for QApi %s : %s", typ.Name(), filter.Name)
-		db.AddError(err)
-		return nil, err
+		return nil, fmt.Errorf("Field type not supported for QApi %s : %s", typ.Name(), filter.Name)
 	}
 	return values, nil
 }
