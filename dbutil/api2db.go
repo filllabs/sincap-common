@@ -83,6 +83,8 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 			if cond, f, err := generateQuery(fieldNames, 1, typ, filter); err == nil {
 				condition = append(condition, cond)
 				targetField = f
+			} else {
+				return "", values, err
 			}
 
 		} else {
@@ -95,7 +97,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 
 		}
 		where = append(where, strings.Join(condition, " "))
-		kind := extractRealType(*targetField).Kind()
+		kind := extractRealType(targetField.Type).Kind()
 		if filter.Operation == query.IN {
 			inVals := strings.Split(filter.Value, "|")
 			for i := 0; i < len(inVals); i++ {
@@ -123,13 +125,26 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 
 	fieldName := fieldNames[i-1]
 	innerFieldName := fieldNames[i]
+
+	if structType.Kind() != reflect.Struct {
+		return "", nil, fmt.Errorf("%s is not struct", structType.Name())
+	}
+
 	field, isFieldFound := structType.FieldByName(fieldName)
 	if !isFieldFound {
 		return "", nil, fmt.Errorf("Can't find struct: %s field: %s", structType.Name(), filter.Name)
 	}
-	innerField, isInnerFieldFound := extractRealType(field).FieldByName(innerFieldName)
+	ft := extractRealType(field.Type)
+	if ft.Kind() != reflect.Struct && ft.Kind() != reflect.Slice {
+		return "", nil, fmt.Errorf("%s is not struct field in %s", filter.Name, structType.Name())
+	}
+
+	if ft.Kind() == reflect.Slice {
+		ft = extractRealType(ft.Elem())
+	}
+	innerField, isInnerFieldFound := extractRealType(ft).FieldByName(innerFieldName)
 	if !isInnerFieldFound {
-		return "", nil, fmt.Errorf("Can't find struct: %s inner field: %s", extractRealType(field).Name(), filter.Name)
+		return "", nil, fmt.Errorf("Can't find struct: %s inner field: %s", extractRealType(ft).Name(), filter.Name)
 	}
 
 	innerCond := ""
@@ -137,7 +152,7 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 	var innerErr error
 	// first dive into inner fields
 	if i < len(fieldNames)-1 {
-		innerCond, targetField, innerErr = generateQuery(fieldNames, i+1, extractRealType(field), filter)
+		innerCond, targetField, innerErr = generateQuery(fieldNames, i+1, extractRealType(ft), filter)
 		if innerErr != nil {
 			return "", targetField, innerErr
 		}
@@ -145,7 +160,7 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 		targetField = &innerField
 	}
 
-	table := extractRealType(field).Name()
+	table := extractRealType(ft).Name()
 
 	if prefix, isPoly := getPolymorphicPrefix(&field); isPoly {
 		polyID := prefix + "ID"
@@ -184,11 +199,11 @@ func getPolymorphicPrefix(f *reflect.StructField) (string, bool) {
 	return "", false
 }
 
-func extractRealType(field reflect.StructField) reflect.Type {
-	if field.Type.Kind() == reflect.Ptr {
-		return field.Type.Elem()
+func extractRealType(field reflect.Type) reflect.Type {
+	if field.Kind() == reflect.Ptr {
+		return field.Elem()
 	}
-	return field.Type
+	return field
 }
 
 func convertValue(filter query.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
