@@ -1,11 +1,11 @@
 package dbconn
 
 import (
+	"gitlab.com/sincap/sincap-common/dbconn/zapgorm"
 	"gitlab.com/sincap/sincap-common/logging"
 
 	"github.com/jinzhu/gorm"
 	"go.uber.org/zap"
-	"moul.io/zapgorm"
 
 	// for Driver support
 	_ "github.com/jinzhu/gorm/dialects/mysql"

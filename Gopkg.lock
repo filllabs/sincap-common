@@ -26,12 +26,12 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:c9283a02d3388f26e1c0a6596a278a2408be500052926ceddfd7e95786ddae86"
+  digest = "1:9854d808458bf1544c2e50ccd5e186d4726b7481204c27e4122644a279ff72cd"
   name = "github.com/go-chi/chi"
   packages = ["."]
   pruneopts = "T"
-  revision = "1a6bb108ccf279c8dac6f9bad857d773b4f9b421"
-  version = "v4.0.1"
+  revision = "da24bba8dcd4021cafac38724bf10dccc97c3e36"
+  version = "v4.0.2"
 
 [[projects]]
   digest = "1:c8add83fa826a6824707f593d84e0c42d3f12966cabcdaa1e53da2c658a084e9"
@@ -86,14 +86,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:daa16099bad53eadf2bb4b995db22344a854e4acb9871bf54a0c537f65b86967"
+  digest = "1:d63fce83b9a98a349651fe0461da97cdd7d8da39227afb0796abfa186c621d3f"
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
     "dialects/mysql",
   ]
   pruneopts = "T"
-  revision = "9f1a7f53511168c0567b4b4b4f10ab7d21265174"
+  revision = "906799fef2f895116d915e1793314ab9053b400d"
 
 [[projects]]
   branch = "master"
@@ -167,12 +167,12 @@
   version = "v1.4.0"
 
 [[projects]]
-  digest = "1:600c1741d385aa3caf836918f188f835387eff28f2707a61729e7531b4ad772e"
+  digest = "1:f5af5a8de3fa35cf6d26efd6dec7a0d1f090f5b519a7bc63b3934d8bdfef759b"
   name = "gopkg.in/go-playground/validator.v9"
   packages = ["."]
   pruneopts = "T"
-  revision = "774d09c3863ffb2e137ebe4c39ba27648d208f80"
-  version = "v9.26.0"
+  revision = "b199fa0642d29caca62b6a99d65cc981ba5edc3b"
+  version = "v9.27.0"
 
 [[projects]]
   digest = "1:7fd1fd8efa95de121d2e041d83422ccac5480970a3ee569acf1b9e0d72e77b4f"
@@ -181,14 +181,6 @@
   pruneopts = "T"
   revision = "d521390733761fe1db13de575c253afd5c743085"
   version = "v1"
-
-[[projects]]
-  branch = "master"
-  digest = "1:de5a800c7a7ea7076926aa84a4e11bc42c993c7b1709a3f2f7c93ddd200f69f3"
-  name = "moul.io/zapgorm"
-  packages = ["."]
-  pruneopts = "T"
-  revision = "2149c5ded6fcc4c3120698770ea2124102adf99a"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -205,7 +197,6 @@
     "go.uber.org/zap",
     "gopkg.in/go-playground/validator.v9",
     "gopkg.in/olahol/melody.v1",
-    "moul.io/zapgorm",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
