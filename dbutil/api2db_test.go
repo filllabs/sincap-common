@@ -70,7 +70,7 @@ func TestFilter2SqlPoly1Level(t *testing.T) {
 	where, values, err := filter2Sql(q.Filter, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, "Osman", values[0])
-	assert.Equal(t, "ID = ( SELECT HolderID FROM Inner1 WHERE ( Name = ? AND HolderID = `SamplePoly`.ID AND HolderType = 'SamplePoly' ) )", where)
+	assert.Equal(t, "ID IN ( SELECT HolderID FROM Inner1 WHERE ( Name = ? AND HolderID = `SamplePoly`.ID AND HolderType = 'SamplePoly' ) )", where)
 }
 
 func TestFilter2SqlPoly2Level(t *testing.T) {
@@ -79,5 +79,5 @@ func TestFilter2SqlPoly2Level(t *testing.T) {
 	where, values, err := filter2Sql(q.Filter, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, "Osman", values[0])
-	assert.Equal(t, "ID = ( SELECT HolderID FROM Inner1 WHERE ( ID = ( SELECT HolderID FROM Inner2 WHERE ( Name = ? AND HolderID = `Inner1`.ID AND HolderType = 'Inner1' ) ) AND HolderID = `SamplePoly`.ID AND HolderType = 'SamplePoly' ) )", where)
+	assert.Equal(t, "ID IN ( SELECT HolderID FROM Inner1 WHERE ( ID IN ( SELECT HolderID FROM Inner2 WHERE ( Name = ? AND HolderID = `Inner1`.ID AND HolderType = 'Inner1' ) ) AND HolderID = `SamplePoly`.ID AND HolderType = 'SamplePoly' ) )", where)
 }

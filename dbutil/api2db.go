@@ -166,7 +166,7 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 		polyID := prefix + "ID"
 		polyType := prefix + "Type"
 		outerTable := structType.Name()
-		condition = append(condition, "ID", "= (", "SELECT", polyID, "FROM", table, "WHERE (")
+		condition = append(condition, "ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
 		if len(innerCond) > 0 {
 			condition = append(condition, innerCond)
 		} else {
