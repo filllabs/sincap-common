@@ -2,6 +2,7 @@ package dbutil
 
 import (
 	"reflect"
+
 	"gitlab.com/sincap/sincap-common/dbconn"
 	"gitlab.com/sincap/sincap-common/logging"
 	"gitlab.com/sincap/sincap-common/resources/query"
@@ -46,7 +47,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, query *query.Query, preloads []st
 	count := -1
 	GenerateDB(query, DB, typ).Table(tableName).Count(&count)
 
-	var filteredList []interface{}
+	filteredList := make([]interface{}, 0, count)
 	if len(query.Fields) == 0 {
 		for i := 0; i < recordArr.Len(); i++ {
 			entity := recordArr.Index(i).Interface()
