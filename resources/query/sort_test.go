@@ -32,5 +32,9 @@ func TestSortParse(t *testing.T) {
 	assert.NoError(t, err7, "+ started param does not throw error")
 	assert.Equal(t, sort.Direction, ASC, "+ must be ASC")
 	assert.Equal(t, sort.Name, "sample", "name must be sample")
+	err8 := sort.Parse(" sample")
+	assert.NoError(t, err8, "' ' started param does not throw error")
+	assert.Equal(t, sort.Direction, ASC, "' ' must be ASC")
+	assert.Equal(t, sort.Name, "sample", "name must be sample")
 
 }
