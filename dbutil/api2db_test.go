@@ -21,6 +21,12 @@ type SamplePoly struct {
 	Name   string
 	InnerF *Inner1 `gorm:"polymorphic:Holder;"`
 }
+
+type SampleM2M struct {
+	ID      uint
+	Name    string
+	Inner2s []*Inner2 `gorm:"many2many:SampleM2MInner2"`
+}
 type Inner1 struct {
 	ID uint
 	PolymorphicModel
@@ -80,4 +86,12 @@ func TestFilter2SqlPoly2Level(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "Osman", values[0])
 	assert.Equal(t, "ID IN ( SELECT HolderID FROM Inner1 WHERE ( ID IN ( SELECT HolderID FROM Inner2 WHERE ( Name = ? AND HolderID = `Inner1`.ID AND HolderType = 'Inner1' ) ) AND HolderID = `SamplePoly`.ID AND HolderType = 'SamplePoly' ) )", where)
+}
+func TestFilter2SqlPM2M(t *testing.T) {
+	typ := reflect.TypeOf(SampleM2M{})
+	q := query.Query{Filter: []query.Filter{query.Filter{Name: "Inner2s.Name", Operation: query.EQ, Value: "Osman"}}}
+	where, values, err := filter2Sql(q.Filter, typ)
+	assert.NoError(t, err)
+	assert.Equal(t, "Osman", values[0])
+	assert.Equal(t, "ID IN ( SELECT SampleM2M_ID FROM SampleM2MInner2 WHERE ( Inner2_ID IN ( SELECT ID FROM Inner2 WHERE ( Name = ? ) ) ) )", where)
 }

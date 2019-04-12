@@ -173,6 +173,12 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 			condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
 		}
 		condition = append(condition, "AND", polyID, "=", "`"+outerTable+"`.ID", "AND", polyType, "=", "'"+outerTable+"'", ")", ")")
+	} else if m2mTable, isM2M := getMany2Many(&field); isM2M {
+		srcRef := structType.Name() + "_ID"
+		destRef := table + "_ID"
+		condition = append(condition, "ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
+		condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
+		condition = append(condition, ")", ")", ")", ")")
 	} else {
 		condition = append(condition, fieldName+"ID", "IN (", "SELECT ID FROM", table, "WHERE (")
 		if len(innerCond) > 0 {
@@ -193,6 +199,19 @@ func getPolymorphicPrefix(f *reflect.StructField) (string, bool) {
 		for _, prop := range props {
 			if strings.HasPrefix(prop, "polymorphic:") {
 				return strings.TrimPrefix(prop, "polymorphic:"), true
+			}
+		}
+	}
+	return "", false
+}
+func getMany2Many(f *reflect.StructField) (string, bool) {
+	// get gorm tag
+	if tag, ok := f.Tag.Lookup("gorm"); ok {
+		props := strings.Split(tag, ";")
+		// find polymorphic info
+		for _, prop := range props {
+			if strings.HasPrefix(prop, "many2many:") {
+				return strings.TrimPrefix(prop, "many2many:"), true
 			}
 		}
 	}
