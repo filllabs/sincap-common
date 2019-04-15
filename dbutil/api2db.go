@@ -56,8 +56,6 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 		}
 		db = db.Where(where, values...)
 	}
-	db = db.Offset(q.Offset)
-	db = db.Limit(q.Limit)
 
 	if len(q.Fields) > 0 {
 		db = db.Select(q.Fields)
