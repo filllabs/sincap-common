@@ -33,19 +33,22 @@ func ListByQuery(DB *gorm.DB, typ interface{}, query *query.Query, preloads []st
 	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(typ)))
 	records := slice.Interface()
 
-	//TODO: Don't call GenerateDB 2 times for count
-	db := GenerateDB(query, DB, typ).Table(tableName)
+	// Get count
+	count := -1
+	db := GenerateDB(query, DB, typ).Table(tableName).Count(&count)
+	if db.Error != nil {
+		return make([]interface{}, 0, 0), 0, db.Error
+	}
+
+	// Add Offset and limit than select
+	db = db.Offset(query.Offset)
+	db = db.Limit(query.Limit)
 	db = addPreloads(db, preloads)
 	result := db.Find(records)
 	if result.Error != nil {
-		return nil, 0, result.Error
+		return make([]interface{}, 0, 0), 0, result.Error
 	}
 	recordArr := reflect.ValueOf(records).Elem()
-	query.Limit = -1
-	query.Offset = -1
-
-	count := -1
-	GenerateDB(query, DB, typ).Table(tableName).Count(&count)
 
 	filteredList := make([]interface{}, 0, count)
 	if len(query.Fields) == 0 {
@@ -115,9 +118,9 @@ func Delete(DB *gorm.DB, record interface{}) error {
 	return result.Error
 }
 
-// DB Returns default DB connection
+// DB Returns default DB connection clone
 func DB() *gorm.DB {
-	return dbconn.GetDefault()
+	return dbconn.GetDefault().New()
 }
 
 // Preload opens "auto_preload" for the given DB
