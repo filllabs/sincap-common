@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/sincap/sincap-common/reflection"
 	"gitlab.com/sincap/sincap-common/resources/query"
 
 	"github.com/jinzhu/gorm"
@@ -95,7 +96,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 
 		}
 		where = append(where, strings.Join(condition, " "))
-		kind := extractRealType(targetField.Type).Kind()
+		kind := reflection.ExtractRealType(targetField.Type).Kind()
 		if filter.Operation == query.IN {
 			inVals := strings.Split(filter.Value, "|")
 			for i := 0; i < len(inVals); i++ {
@@ -132,17 +133,17 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 	if !isFieldFound {
 		return "", nil, fmt.Errorf("Can't find struct: %s field: %s", structType.Name(), filter.Name)
 	}
-	ft := extractRealType(field.Type)
+	ft := reflection.ExtractRealType(field.Type)
 	if ft.Kind() != reflect.Struct && ft.Kind() != reflect.Slice {
 		return "", nil, fmt.Errorf("%s is not struct field in %s", filter.Name, structType.Name())
 	}
 
 	if ft.Kind() == reflect.Slice {
-		ft = extractRealType(ft.Elem())
+		ft = reflection.ExtractRealType(ft.Elem())
 	}
-	innerField, isInnerFieldFound := extractRealType(ft).FieldByName(innerFieldName)
+	innerField, isInnerFieldFound := reflection.ExtractRealType(ft).FieldByName(innerFieldName)
 	if !isInnerFieldFound {
-		return "", nil, fmt.Errorf("Can't find struct: %s inner field: %s", extractRealType(ft).Name(), filter.Name)
+		return "", nil, fmt.Errorf("Can't find struct: %s inner field: %s", reflection.ExtractRealType(ft).Name(), filter.Name)
 	}
 
 	innerCond := ""
@@ -150,7 +151,7 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 	var innerErr error
 	// first dive into inner fields
 	if i < len(fieldNames)-1 {
-		innerCond, targetField, innerErr = generateQuery(fieldNames, i+1, extractRealType(ft), filter)
+		innerCond, targetField, innerErr = generateQuery(fieldNames, i+1, reflection.ExtractRealType(ft), filter)
 		if innerErr != nil {
 			return "", targetField, innerErr
 		}
@@ -158,7 +159,7 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 		targetField = &innerField
 	}
 
-	table := extractRealType(ft).Name()
+	table := reflection.ExtractRealType(ft).Name()
 
 	if prefix, isPoly := getPolymorphicPrefix(&field); isPoly {
 		polyID := prefix + "ID"
@@ -171,7 +172,7 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 			condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
 		}
 		condition = append(condition, "AND", polyID, "=", "`"+outerTable+"`.ID", "AND", polyType, "=", "'"+outerTable+"'", ")", ")")
-	} else if m2mTable, isM2M := getMany2Many(&field); isM2M {
+	} else if m2mTable, isM2M := GetMany2ManyTableName(&field); isM2M {
 		srcRef := structType.Name() + "_ID"
 		destRef := table + "_ID"
 		condition = append(condition, "ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
@@ -202,11 +203,13 @@ func getPolymorphicPrefix(f *reflect.StructField) (string, bool) {
 	}
 	return "", false
 }
-func getMany2Many(f *reflect.StructField) (string, bool) {
+
+// GetMany2ManyTableName tries to read the table name of the gorm tag "many2many" from the given field.
+func GetMany2ManyTableName(f *reflect.StructField) (string, bool) {
 	// get gorm tag
 	if tag, ok := f.Tag.Lookup("gorm"); ok {
 		props := strings.Split(tag, ";")
-		// find polymorphic info
+		// find many2mant info
 		for _, prop := range props {
 			if strings.HasPrefix(prop, "many2many:") {
 				return strings.TrimPrefix(prop, "many2many:"), true
@@ -214,13 +217,6 @@ func getMany2Many(f *reflect.StructField) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func extractRealType(field reflect.Type) reflect.Type {
-	if field.Kind() == reflect.Ptr {
-		return field.Elem()
-	}
-	return field
 }
 
 func convertValue(filter query.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
