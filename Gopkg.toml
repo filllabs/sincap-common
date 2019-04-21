@@ -7,7 +7,7 @@
 
 [[constraint]]
   name = "github.com/jinzhu/gorm"
-  branch = "master"
+  version = "1.9.2"
 
 [[constraint]]
   name = "gopkg.in/olahol/melody.v1"
@@ -19,4 +19,4 @@
 
 [[constraint]]
   name = "gopkg.in/go-playground/validator.v9"
-  version = "9.21.0"
+  version = "9.28.0"

@@ -85,15 +85,15 @@
   version = "v1.4.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:d63fce83b9a98a349651fe0461da97cdd7d8da39227afb0796abfa186c621d3f"
+  digest = "1:76c1271523a91403ac578346de39396448a205340df68cfd3aebf35ae1f61049"
   name = "github.com/jinzhu/gorm"
   packages = [
     ".",
     "dialects/mysql",
   ]
   pruneopts = "T"
-  revision = "906799fef2f895116d915e1793314ab9053b400d"
+  revision = "e3987fd4b803c16497aa4dfd2e75db7a6a061a4e"
+  version = "v1.9.4"
 
 [[projects]]
   branch = "master"
@@ -159,20 +159,20 @@
   version = "v1.9.1"
 
 [[projects]]
-  digest = "1:1469235a5a8e192cfe6a99c4804b883a02f0ff96a693cd1660515a3a3b94d5ac"
+  digest = "1:0c4496c1ac6b225c699524bf78df201f895305d7f6a0fee3d8e99cb244e0474e"
   name = "google.golang.org/appengine"
   packages = ["cloudsql"]
   pruneopts = "T"
-  revision = "e9657d882bb81064595ca3b56cbe2546bbabf7b1"
-  version = "v1.4.0"
+  revision = "54a98f90d1c46b7731eb8fb305d2a321c30ef610"
+  version = "v1.5.0"
 
 [[projects]]
-  digest = "1:f5af5a8de3fa35cf6d26efd6dec7a0d1f090f5b519a7bc63b3934d8bdfef759b"
+  digest = "1:0c9ec0e9c7d8cedfe0afb19b4434b54027bc814ee4779121535e68509742a9e5"
   name = "gopkg.in/go-playground/validator.v9"
   packages = ["."]
   pruneopts = "T"
-  revision = "b199fa0642d29caca62b6a99d65cc981ba5edc3b"
-  version = "v9.27.0"
+  revision = "46b4b1e301c24cac870ffcb4ba5c8a703d1ef475"
+  version = "v9.28.0"
 
 [[projects]]
   digest = "1:7fd1fd8efa95de121d2e041d83422ccac5480970a3ee569acf1b9e0d72e77b4f"
