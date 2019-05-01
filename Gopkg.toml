@@ -7,7 +7,8 @@
 
 [[constraint]]
   name = "github.com/jinzhu/gorm"
-  revision = "071b657418cccdab721e549108b6b6cf8a1b7361"
+  version = "1.9.5"
+  # revision = "071b657418cccdab721e549108b6b6cf8a1b7361"
 
 [[constraint]]
   name = "gopkg.in/olahol/melody.v1"
