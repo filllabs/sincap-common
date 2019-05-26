@@ -11,15 +11,15 @@ import (
 
 type Sample struct {
 	ID       uint
-	Name     string
+	Name     string `qapi:"q:%*%;"`
 	InnerFID uint
-	InnerF   *Inner1
+	InnerF   *Inner1 `qapi:"q:*"`
 }
 
 type SamplePoly struct {
 	ID     uint
-	Name   string
-	InnerF *Inner1 `gorm:"polymorphic:Holder;"`
+	Name   string  `qapi:"q:*"`
+	InnerF *Inner1 `gorm:"polymorphic:Holder;" qapi:"q:*"`
 }
 
 type SampleM2M struct {
@@ -30,18 +30,16 @@ type SampleM2M struct {
 type Inner1 struct {
 	ID uint
 	PolymorphicModel
-	Name      string
+	Name      string `qapi:"q:%*;"`
 	Inner2FID uint
 	Inner2F   *Inner2
-	Inner2P   *Inner2 `gorm:"polymorphic:Holder;"`
+	Inner2P   *Inner2 `gorm:"polymorphic:Holder;" qapi:"q:*;"`
 }
 type Inner2 struct {
 	ID   uint
-	Name string
+	Name string `qapi:"q:*%;"`
 	Age  uint
 }
-
-//TODO: add poly tests
 
 func TestFilter2Sql1Level(t *testing.T) {
 	typ := reflect.TypeOf(Sample{})
@@ -94,4 +92,24 @@ func TestFilter2SqlPM2M(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "Osman", values[0])
 	assert.Equal(t, "ID IN ( SELECT SampleM2M_ID FROM SampleM2MInner2 WHERE ( Inner2_ID IN ( SELECT ID FROM Inner2 WHERE ( Name = ? ) ) ) )", where)
+}
+func TestQ2Sql(t *testing.T) {
+	typ := reflect.TypeOf(Sample{})
+	q := query.Query{Q: "seray"}
+	where, values, err := q2Sql(q.Q, typ)
+	assert.NoError(t, err)
+	assert.Equal(t, "%seray%", values[0])
+	assert.Equal(t, "%seray", values[1])
+	assert.Equal(t, "seray%", values[2])
+	assert.Equal(t, "Name LIKE ? OR InnerFID IN ( SELECT ID FROM Inner1 WHERE ( Name LIKE ? OR ID IN ( SELECT HolderID FROM Inner2 WHERE ( Name LIKE ? ) ) ) )", where)
+}
+func TestQ2SqlPoly(t *testing.T) {
+	typ := reflect.TypeOf(SamplePoly{})
+	q := query.Query{Q: "seray"}
+	where, values, err := q2Sql(q.Q, typ)
+	assert.NoError(t, err)
+	assert.Equal(t, "seray", values[0])
+	assert.Equal(t, "%seray", values[1])
+	assert.Equal(t, "seray%", values[2])
+	assert.Equal(t, "Name LIKE ? OR ID IN ( SELECT HolderID FROM Inner1 WHERE ( Name LIKE ? OR ID IN ( SELECT HolderID FROM Inner2 WHERE ( Name LIKE ? ) ) ) )", where)
 }

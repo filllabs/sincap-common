@@ -7,6 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/sincap/sincap-common/logging"
+	"go.uber.org/zap"
+
 	"gitlab.com/sincap/sincap-common/reflection"
 	"gitlab.com/sincap/sincap-common/resources/query"
 
@@ -61,7 +64,70 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 	if len(q.Fields) > 0 {
 		db = db.Select(q.Fields)
 	}
+
+	if len(q.Q) > 0 {
+		where, values, err := q2Sql(q.Q, typ)
+		if err != nil {
+			db.AddError(err)
+			return db
+		}
+		db = db.Where(where, values...)
+	}
 	return db
+}
+
+func q2Sql(q string, typ reflect.Type) (string, []interface{}, error) {
+
+	// Convert q to  where condition with OR for all fields with tag
+	where, values, err := generateQQuery(typ, q)
+	if err != nil {
+		logging.Logger.Warn("Can't create query from q", zap.Error(err))
+	}
+	return strings.Join(where, " OR "), values, nil
+}
+
+func generateQQuery(structType reflect.Type, q string) ([]string, []interface{}, error) {
+	var where []string
+	var values []interface{}
+	for i := 0; i < structType.NumField(); i++ {
+		field := structType.Field(i)
+		fieldTyp := reflection.ExtractRealType(field.Type)
+		tag, hasTag := getQapiQPrefix(&field)
+		if hasTag {
+			if fieldTyp.Kind() == reflect.Struct {
+				w, v, err := generateQQuery(fieldTyp, q)
+				var cond []string
+				if err != nil {
+					logging.Logger.Warn("Can't create query from q", zap.Error(err))
+				}
+				table := reflection.ExtractRealType(fieldTyp).Name()
+				if prefix, isPoly := getPolymorphicPrefix(&field); isPoly {
+					polyID := prefix + "ID"
+					cond = append(cond, "ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
+					cond = append(cond, strings.Join(w, " OR "))
+					cond = append(cond, ") )")
+					where = append(where, strings.Join(cond, " "))
+				} else if m2mTable, isM2M := GetMany2ManyTableName(&field); isM2M {
+					srcRef := structType.Name() + "_ID"
+					destRef := table + "_ID"
+					cond = append(cond, "ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
+					cond = append(cond, strings.Join(w, " OR "))
+					cond = append(cond, ")", ")", ")", ")")
+					where = append(where, strings.Join(cond, " "))
+				} else {
+					cond = append(cond, field.Name+"ID", "IN (", "SELECT ID FROM", table, "WHERE (")
+					cond = append(cond, strings.Join(w, " OR "))
+					cond = append(cond, ")", ")")
+					where = append(where, strings.Join(cond, " "))
+				}
+				values = append(values, v...)
+			} else {
+				where = append(where, field.Name+" LIKE ?")
+				values = append(values, strings.Replace(tag, "*", q, 1))
+			}
+		}
+	}
+	return where, values, nil
 }
 
 func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}, error) {
@@ -79,7 +145,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 
 		// If it has more than 1 field name it has inner fields (another table)
 		if len(fieldNames) > 1 {
-			if cond, f, err := generateQuery(fieldNames, 1, typ, filter); err == nil {
+			if cond, f, err := generateFilterQuery(fieldNames, 1, typ, filter); err == nil {
 				condition = append(condition, cond)
 				targetField = f
 			} else {
@@ -118,7 +184,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 	return strings.Join(where, " AND "), values, nil
 }
 
-func generateQuery(fieldNames []string, i int, structType reflect.Type, filter query.Filter) (string, *reflect.StructField, error) {
+func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, filter query.Filter) (string, *reflect.StructField, error) {
 
 	var condition []string
 
@@ -151,7 +217,7 @@ func generateQuery(fieldNames []string, i int, structType reflect.Type, filter q
 	var innerErr error
 	// first dive into inner fields
 	if i < len(fieldNames)-1 {
-		innerCond, targetField, innerErr = generateQuery(fieldNames, i+1, reflection.ExtractRealType(ft), filter)
+		innerCond, targetField, innerErr = generateFilterQuery(fieldNames, i+1, reflection.ExtractRealType(ft), filter)
 		if innerErr != nil {
 			return "", targetField, innerErr
 		}
@@ -203,13 +269,26 @@ func getPolymorphicPrefix(f *reflect.StructField) (string, bool) {
 	}
 	return "", false
 }
+func getQapiQPrefix(f *reflect.StructField) (string, bool) {
+	// get gorm tag
+	if tag, ok := f.Tag.Lookup("qapi"); ok {
+		props := strings.Split(tag, ";")
+		// find qaip q info
+		for _, prop := range props {
+			if strings.HasPrefix(prop, "q:") {
+				return strings.TrimPrefix(prop, "q:"), true
+			}
+		}
+	}
+	return "", false
+}
 
 // GetMany2ManyTableName tries to read the table name of the gorm tag "many2many" from the given field.
 func GetMany2ManyTableName(f *reflect.StructField) (string, bool) {
 	// get gorm tag
 	if tag, ok := f.Tag.Lookup("gorm"); ok {
 		props := strings.Split(tag, ";")
-		// find many2mant info
+		// find many2many info
 		for _, prop := range props {
 			if strings.HasPrefix(prop, "many2many:") {
 				return strings.TrimPrefix(prop, "many2many:"), true
