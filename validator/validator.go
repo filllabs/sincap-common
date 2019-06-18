@@ -14,7 +14,7 @@ import (
 // Validate is a common default validator instance for all validation operations.
 var Validate = validator.New()
 var ibanRegexp = regexp.MustCompile("([A-Za-z]{2})([0-9]{24})")
-var phoneRegexp = regexp.MustCompile("([+]?[0-9]{1,2})?([0-9]{3}[.-]?){2}[0-9]{4}")
+var phoneRegexp = regexp.MustCompile("[0-9]{7,20}")
 var plateRegexp = regexp.MustCompile("([0-9]{2})([A-Z]{1,4})([0-9]{2,4})")
 
 func init() {
