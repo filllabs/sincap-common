@@ -177,6 +177,15 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 					return "", values, err
 				}
 			}
+		} else if filter.Operation == query.IN_ALT {
+			inVals := strings.Split(filter.Value, "*")
+			for i := 0; i < len(inVals); i++ {
+				var err error
+				values, err = convertValue(filter, typ, kind, values, inVals[i])
+				if err != nil {
+					return "", values, err
+				}
+			}
 		} else {
 			var err error
 			values, err = convertValue(filter, typ, kind, values, filter.Value)
