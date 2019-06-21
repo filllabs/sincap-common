@@ -32,8 +32,10 @@ const (
 	GTE
 	// LK ~=
 	LK
-	// IN |= (values must be separated with |
+	// IN |= (values must be separated with | )
 	IN
+	// IN_ALT *= (values must be separated with * )
+	IN_ALT
 )
 
 func (op Operation) String() string {
@@ -46,7 +48,9 @@ func (op Operation) String() string {
 		"GT",
 		"GTE",
 		"LK",
-		"IN"}
+		"IN",
+		"IN_ALT",
+	}
 	return names[op]
 }
 
@@ -67,7 +71,7 @@ func (filter *Filter) Parse(param string) error {
 outer:
 	for _, ch := range param {
 		switch ch {
-		case '=', '!', '<', '>', '~', '|':
+		case '=', '!', '<', '>', '~', '|', '*':
 			op = op + string(ch)
 			if len(op) == 2 {
 				break outer
@@ -96,6 +100,8 @@ outer:
 		filter.Operation = LK
 	case "|=":
 		filter.Operation = IN
+	case "*=":
+		filter.Operation = IN_ALT
 	default:
 		return ErrInvalidOp
 	}

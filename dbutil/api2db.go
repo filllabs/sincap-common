@@ -40,6 +40,11 @@ func getCondition(condition []string, field string, value interface{}, operation
 		paramSection := strings.Repeat("?,", len(params))
 		condition = append(condition, "IN", "("+paramSection[0:len(paramSection)-1]+")")
 		value = params
+	case query.IN_ALT:
+		params := strings.Split(value.(string), "*")
+		paramSection := strings.Repeat("?,", len(params))
+		condition = append(condition, "IN", "("+paramSection[0:len(paramSection)-1]+")")
+		value = params
 	}
 	return condition
 }
@@ -165,6 +170,15 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 		kind := reflection.ExtractRealType(targetField.Type).Kind()
 		if filter.Operation == query.IN {
 			inVals := strings.Split(filter.Value, "|")
+			for i := 0; i < len(inVals); i++ {
+				var err error
+				values, err = convertValue(filter, typ, kind, values, inVals[i])
+				if err != nil {
+					return "", values, err
+				}
+			}
+		} else if filter.Operation == query.IN_ALT {
+			inVals := strings.Split(filter.Value, "*")
 			for i := 0; i < len(inVals); i++ {
 				var err error
 				values, err = convertValue(filter, typ, kind, values, inVals[i])

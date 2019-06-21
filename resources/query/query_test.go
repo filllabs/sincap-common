@@ -12,7 +12,7 @@ import (
 
 func TestQuery(t *testing.T) {
 	api := Query{}
-	r := httptest.NewRequest("POST", "http://localhost:3000/api/menus?_q=nissan&_fields=manufacturer,model,id,color&_offset=10&_limit=5&_sort=-manufacturer,+model&_filter=name=seray,active!=true,order|=1|2", strings.NewReader("Read will return these bytes"))
+	r := httptest.NewRequest("POST", "http://localhost:3000/api/menus?_q=nissan&_fields=manufacturer,model,id,color&_offset=10&_limit=5&_sort=-manufacturer,+model&_filter=name=seray,active!=true,order|=1|2,orderAlt*=1*2", strings.NewReader("Read will return these bytes"))
 
 	rctx := chi.NewRouteContext()
 
@@ -31,6 +31,7 @@ func TestQuery(t *testing.T) {
 		{Name: "name", Operation: EQ, Value: "seray"},
 		{Name: "active", Operation: NEQ, Value: "true"},
 		{Name: "order", Operation: IN, Value: "1|2"},
+		{Name: "orderAlt", Operation: IN_ALT, Value: "1*2"},
 	}, api.Filter, "Filter test failed.")
 }
 func TestQueryJustLimit(t *testing.T) {
