@@ -40,6 +40,11 @@ func getCondition(condition []string, field string, value interface{}, operation
 		paramSection := strings.Repeat("?,", len(params))
 		condition = append(condition, "IN", "("+paramSection[0:len(paramSection)-1]+")")
 		value = params
+	case query.IN_ALT:
+		params := strings.Split(value.(string), "*")
+		paramSection := strings.Repeat("?,", len(params))
+		condition = append(condition, "IN", "("+paramSection[0:len(paramSection)-1]+")")
+		value = params
 	}
 	return condition
 }
