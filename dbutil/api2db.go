@@ -54,6 +54,12 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 	typ := reflect.TypeOf(entity)
 
 	//TODO: checkfieldnames with model
+
+	_, isFieldFound := typ.FieldByName("DeletedAt")
+	if isFieldFound {
+		db = db.Where("DeletedAt IS NULL")
+	}
+
 	if len(q.Sort) > 0 {
 		db = db.Order(strings.Join(q.Sort, ", "))
 	}
