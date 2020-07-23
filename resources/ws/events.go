@@ -3,6 +3,8 @@ package ws
 import (
 	"sync"
 
+	"gitlab.com/sincap/sincap-common/auth"
+
 	"gitlab.com/sincap/sincap-common/logging"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -10,6 +12,29 @@ import (
 	"go.uber.org/zap"
 	melody "gopkg.in/olahol/melody.v1"
 )
+
+// NewEncypriptedHandleConnect returns default implementation of connect handler for melody websockets. Decodes jwt with the given secret.
+func NewEncypriptedHandleConnect(users *sync.Map, logger *zap.Logger, beforeResponse func(*melody.Session), secret string) func(*melody.Session) {
+	return func(s *melody.Session) {
+		if claims, err := auth.DecodeFromContext(s.Request.Context(), secret); err != nil {
+			logging.Logger.Warn("Can not read token from request context")
+		} else {
+			if claims.Username == "" {
+				logging.Logger.Warn("Can not read Username from token")
+			} else {
+				if claims.UserID == 0 {
+					logging.Logger.Warn("Can not read UserId from token")
+				} else {
+					s.Set("Username", claims.Username)
+					s.Set("UserID", claims.UserID)
+					users.Store(s, claims.Username)
+					logging.Logger.Info("Web Socket Connected", zap.String("Username", claims.Username))
+					beforeResponse(s)
+				}
+			}
+		}
+	}
+}
 
 // NewHandleConnect returns default implementation of connect handler for melody websockets.HandleConnect
 func NewHandleConnect(users *sync.Map, logger *zap.Logger, beforeResponse func(*melody.Session)) func(*melody.Session) {
