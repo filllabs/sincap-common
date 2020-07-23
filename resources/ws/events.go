@@ -13,8 +13,8 @@ import (
 	melody "gopkg.in/olahol/melody.v1"
 )
 
-// NewEncyptedHandleConnect returns default implementation of connect handler for melody websockets. Decodes jwt with the given secret.
-func NewEncyptedHandleConnect(users *sync.Map, logger *zap.Logger, beforeResponse func(*melody.Session), secret string) func(*melody.Session) {
+// NewEncryptedHandleConnect returns default implementation of connect handler for melody websockets. Decodes jwt with the given secret.
+func NewEncryptedHandleConnect(users *sync.Map, logger *zap.Logger, beforeResponse func(*melody.Session), secret string) func(*melody.Session) {
 	return func(s *melody.Session) {
 		if claims, err := auth.DecodeFromContext(s.Request.Context(), secret); err != nil {
 			logging.Logger.Warn("Can not read token from request context")
