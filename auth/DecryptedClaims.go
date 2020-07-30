@@ -11,20 +11,20 @@ import (
 
 // DecryptedClaims holds the necessary information needed
 type DecryptedClaims struct {
-	UserID     uint   `json:",omitempty"`
-	Username   string `json:",omitempty"`
-	RoleID     uint   `json:",omitempty"`
-	RoleName   string `json:",omitempty"`
-	CurrencyID uint   `json:",omitempty"`
-	UserAgent  string `json:",omitempty"`
-	UserIP     string `json:",omitempty"`
-	Audience   string `json:",omitempty"`
-	ExpiresAt  int64  `json:",omitempty"`
-	ID         string `json:",omitempty"`
-	IssuedAt   int64  `json:",omitempty"`
-	Issuer     string `json:",omitempty"`
-	NotBefore  int64  `json:",omitempty"`
-	Subject    string `json:",omitempty"`
+	UserID    uint                   `json:",omitempty"`
+	Username  string                 `json:",omitempty"`
+	RoleID    uint                   `json:",omitempty"`
+	RoleName  string                 `json:",omitempty"`
+	UserAgent string                 `json:",omitempty"`
+	UserIP    string                 `json:",omitempty"`
+	Audience  string                 `json:",omitempty"`
+	ExpiresAt int64                  `json:",omitempty"`
+	ID        string                 `json:",omitempty"`
+	IssuedAt  int64                  `json:",omitempty"`
+	Issuer    string                 `json:",omitempty"`
+	NotBefore int64                  `json:",omitempty"`
+	Subject   string                 `json:",omitempty"`
+	Extra     map[string]interface{} `json:",omitempty"`
 }
 
 // Encrypt hides all payload and returns as EncryptedClaims
