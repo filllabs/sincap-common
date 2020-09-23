@@ -12,16 +12,24 @@ import (
 	"go.uber.org/zap"
 )
 
+// ListSmartSelect calls ListByQuery or ListAll according to the query parameter with smart select support
+func ListSmartSelect(DB *gorm.DB, typ interface{}, query *query.Query, styp interface{}, preloads ...string) (interface{}, int, error) {
+	if query == nil {
+		return ListAllSmartSelect(DB, typ, styp, preloads)
+	}
+	return ListByQuery(DB, typ, styp, query, preloads)
+}
+
 // List calls ListByQuery or ListAll according to the query parameter
 func List(DB *gorm.DB, typ interface{}, query *query.Query, preloads ...string) (interface{}, int, error) {
 	if query == nil {
-		return ListAll(DB, typ, preloads)
+		return ListAllSmartSelect(DB, typ, typ, preloads)
 	}
-	return ListByQuery(DB, typ, query, preloads)
+	return ListByQuery(DB, typ, typ, query, preloads)
 }
 
 // ListByQuery returns all records matches with the Query API
-func ListByQuery(DB *gorm.DB, typ interface{}, query *query.Query, preloads []string) (interface{}, int, error) {
+func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Query, preloads []string) (interface{}, int, error) {
 	tableName := ""
 	if tableNameFunc, useMethod := reflect.TypeOf(typ).MethodByName("TableName"); useMethod {
 		a := reflect.ValueOf(typ)
@@ -30,7 +38,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, query *query.Query, preloads []st
 	} else {
 		tableName = reflect.TypeOf(typ).Name()
 	}
-	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(typ)))
+	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(styp)))
 	records := slice.Interface()
 
 	// Get count
@@ -53,9 +61,9 @@ func ListByQuery(DB *gorm.DB, typ interface{}, query *query.Query, preloads []st
 	filteredList := make([]interface{}, 0, count)
 	if len(query.Fields) == 0 {
 		for i := 0; i < recordArr.Len(); i++ {
+			// since the is no fileds user entity instead of map
 			entity := recordArr.Index(i).Interface()
-			json := structs.Map(entity)
-			filteredList = append(filteredList, json)
+			filteredList = append(filteredList, entity)
 		}
 		return filteredList, count, result.Error
 	}
@@ -71,15 +79,20 @@ func ListByQuery(DB *gorm.DB, typ interface{}, query *query.Query, preloads []st
 	return filteredList, count, result.Error
 }
 
-// ListAll returns all records
-func ListAll(DB *gorm.DB, typ interface{}, preloads []string) (interface{}, int, error) {
+// ListAllSmartSelect returns all records
+func ListAllSmartSelect(DB *gorm.DB, typ interface{}, styp interface{}, preloads []string) (interface{}, int, error) {
 	tableName := reflect.TypeOf(typ).Name()
-	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(typ)))
+	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(styp)))
 	records := slice.Interface()
 	result := addPreloads(DB, preloads).Table(tableName).Find(records)
 	recordArr := reflect.ValueOf(records).Elem()
 
 	return recordArr.Interface(), recordArr.Len(), result.Error
+}
+
+// ListAll returns all records
+func ListAll(DB *gorm.DB, typ interface{}, preloads []string) (interface{}, int, error) {
+	return ListAllSmartSelect(DB, typ, typ, preloads)
 }
 
 // Create Record
