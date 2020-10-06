@@ -25,17 +25,7 @@ type DBConfig struct {
 
 // Configure DB connection
 func Configure(dbConfs []DBConfig) {
-	gorm.AddNamingStrategy(&gorm.NamingStrategy{
-		DB: func(name string) string {
-			return name
-		},
-		Table: func(name string) string {
-			return name
-		},
-		Column: func(name string) string {
-			return name
-		},
-	})
+	gorm.AddNamingStrategy(AsIsNamingStrategy())
 
 	for i := range dbConfs {
 		conf := dbConfs[i]

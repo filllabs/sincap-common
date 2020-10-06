@@ -1,4 +1,4 @@
-package dbutil
+package dbconn
 
 import "github.com/jinzhu/gorm"
 
