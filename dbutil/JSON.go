@@ -40,7 +40,7 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 	return j, nil
 }
 
-// Marshal json.Marshals the data into the given interface
+// Marshal json.Marshals the data from the given interface
 func (j *JSON) Marshal(v interface{}) error {
 	data, err := json.Marshal(v)
 	if err != nil {
@@ -59,8 +59,35 @@ func (j *JSON) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// UnmarshalArray writes the data to a array
+func (j *JSON) UnmarshalArray() ([]interface{}, error) {
+	if j == nil {
+		return nil, errors.New("null point exception")
+	}
+	var arr []interface{}
+	if err := json.Unmarshal([]byte(*j), &arr); err != nil {
+		return nil, err
+	}
+	return arr, nil
+}
+
+// UnmarshalMap writes the data to a map
+func (j *JSON) UnmarshalMap() (map[string]interface{}, error) {
+	if j == nil {
+		return nil, errors.New("null point exception")
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(*j), &m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Unmarshal json.Unmarshal the data from the given interface
 func (j *JSON) Unmarshal(v interface{}) error {
+	if j == nil {
+		return errors.New("null point exception")
+	}
 	if err := json.Unmarshal([]byte(*j), v); err != nil {
 		return err
 	}
