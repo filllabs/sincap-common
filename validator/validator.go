@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
+
 	"gitlab.com/sincap/sincap-common/json"
 	"gitlab.com/sincap/sincap-common/resources"
 
@@ -37,7 +38,7 @@ func plate(fl validator.FieldLevel) bool {
 }
 
 // Context middleware is used to parse interfaces and validate them.
-func Context(contextKey resources.ContextKey, in interface{}) func(next http.Handler) http.Handler {
+func Context(contextKey resources.ContextKey, in interface{}) resources.Handler {
 	t := reflect.TypeOf(in)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

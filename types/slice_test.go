@@ -24,3 +24,7 @@ func TestContainsSlice(t *testing.T) {
 	assert.Equal(t, true, SliceContains(ptrSlice, targetPtr), "Can't find targetPtr in ptrSlice")
 	assert.Equal(t, true, SliceContains(ptrSlicePtr, targetPtr), "Can't find targetPtr in ptrSlicePtr")
 }
+
+func TestSliceOfString(t *testing.T) {
+	assert.Equal(t, []string{"a", "a", "a"}, SliceOfString("a", 3))
+}

@@ -122,6 +122,15 @@ func Update(DB *gorm.DB, record interface{}) error {
 	return result.Error
 }
 
+// UpdatePartial Record
+func UpdatePartial(DB *gorm.DB, table string, id uint, record map[string]interface{}) error {
+	result := DB.Table(table).Where("ID=?", id).Updates(record)
+	if result.Error != nil {
+		logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
+	}
+	return result.Error
+}
+
 // Delete Record
 func Delete(DB *gorm.DB, record interface{}) error {
 	result := DB.Delete(record)

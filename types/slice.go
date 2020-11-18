@@ -47,3 +47,12 @@ func convertSliceToInterface(s interface{}) (slice []interface{}) {
 
 	return slice
 }
+
+// SliceOfString creates a slice of the given item with the size of the given count.
+func SliceOfString(item string, count int) []string {
+	sl := make([]string, count)
+	for i := 0; i < count; i++ {
+		sl[i] = item
+	}
+	return sl
+}
