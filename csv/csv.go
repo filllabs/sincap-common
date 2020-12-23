@@ -69,20 +69,22 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 			return recordArr, err
 		}
 		logging.Logger.Debug("Titles read", zap.Any("titles", titles))
-	outer:
-		for i := 0; i < len(tags); i++ {
-			tag := tags[i]
-			for j := 0; j < len(titles); j++ {
-				title := titles[j]
-				if !tag.Ignore && strings.TrimSpace(title) == tag.Name {
-					columnIndexMatch = append(columnIndexMatch, j)
-					continue outer
+		if orderByTitles {
+		outer:
+			for i := 0; i < len(tags); i++ {
+				tag := tags[i]
+				for j := 0; j < len(titles); j++ {
+					title := titles[j]
+					if !tag.Ignore && strings.TrimSpace(title) == tag.Name {
+						columnIndexMatch = append(columnIndexMatch, j)
+						continue outer
+					}
 				}
+				if !tag.Ignore {
+					return recordArr, fmt.Errorf("Required field not found on CSV Title:%s Index:%d", tag.Name, tag.Index)
+				}
+				columnIndexMatch = append(columnIndexMatch, -1)
 			}
-			if !tag.Ignore {
-				return recordArr, fmt.Errorf("Required field not found on CSV Title:%s Index:%d", tag.Name, tag.Index)
-			}
-			columnIndexMatch = append(columnIndexMatch, -1)
 		}
 		logging.Logger.Debug("Titles Matched", zap.Any("matches", columnIndexMatch))
 	}

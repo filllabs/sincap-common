@@ -33,6 +33,9 @@ type SampleIgnored struct {
 	Class    string  `csv:"-"`
 	Rate     float32 `csv:"Rate"`
 }
+type SampleNoTitle struct {
+	ID uint
+}
 
 func TestRead(t *testing.T) {
 	typ := Sample{}
@@ -80,4 +83,15 @@ func TestReadIgnoredTitle(t *testing.T) {
 	assert.NoError(t, err, "Can't read CSV file ")
 	assert.Equal(t, 5000, len(records), "CSV length is wrong!")
 	assert.Equal(t, "Nunavut", records[0].(SampleIgnored).Material, "CSV first Elemnent is wrong!")
+}
+func TestReadIgnoreTitle(t *testing.T) {
+	typ := SampleNoTitle{}
+	path, pErr := filepath.Abs("../test/sampleCsv5IgnoreTitle.csv")
+	assert.NoError(t, pErr, "Cant't find path")
+	csvFile, fErr := os.Open(path)
+	assert.NoError(t, fErr, "Cant't find file")
+	records, err := Read(bufio.NewReader(csvFile), typ, true, ';', false)
+	assert.NoError(t, err, "Can't read CSV file ")
+	assert.Equal(t, 5, len(records), "CSV length is wrong!")
+	assert.Equal(t, uint(1), records[0].(SampleNoTitle).ID, "CSV first Elemnent is wrong!")
 }
