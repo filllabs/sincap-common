@@ -43,9 +43,17 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 
 	// Get count
 	count := -1
-	db := GenerateDB(query, DB, typ).Table(tableName).Count(&count)
-	if db.Error != nil {
-		return make([]interface{}, 0, 0), 0, db.Error
+	db := GenerateDB(query, DB, typ).Table(tableName)
+
+	etyp := reflect.TypeOf(typ)
+	_, isFieldFound := etyp.FieldByName("DeletedAt")
+	cDB := db
+	if isFieldFound {
+		cDB = cDB.Where("DeletedAt IS NULL")
+	}
+	cDB = cDB.Count(&count)
+	if cDB.Error != nil {
+		return make([]interface{}, 0, 0), 0, cDB.Error
 	}
 
 	// Add Offset and limit than select
