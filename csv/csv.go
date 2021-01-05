@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gitlab.com/sincap/sincap-common/logging"
+	"gitlab.com/sincap/sincap-common/reflection"
 	"go.uber.org/zap"
 )
 
@@ -18,26 +19,40 @@ var timeKind = reflect.TypeOf(time.Time{}).Kind()
 
 const timeLayout = "02.01.2006"
 
-// CsvTag holds basic properties of csv tag
-type CsvTag struct {
+// Tag holds basic properties of csv tag
+type Tag struct {
 	Name   string
 	Ignore bool
 	Index  int
 }
 
-// Read creates a csv reader from the given reader.
+// type OnItem func(i interface{}) error
+
+// Read creates a csv reader from the given reader and returns a slice of the parsed rows
 func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByTitles bool) ([]interface{}, error) {
-	typ := reflect.TypeOf(t)
 	var recordArr []interface{}
+	onItem := func(i interface{}) error {
+		recordArr = append(recordArr, i)
+		return nil
+	}
+	if err := ReadWithCallback(r, t, hasTitleRow, delimiter, orderByTitles, onItem); err != nil {
+		return recordArr, err
+	}
+	return recordArr, nil
+}
+
+// ReadWithCallback creates a csv reader from the given reader and calls onItem function on evert row
+func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByTitles bool, onItem func(i interface{}) error) error {
+	typ := reflection.ExtractRealType(reflect.TypeOf(t))
 	fieldLen := typ.NumField()
-	logging.Logger.Debug("Type received", zap.Any("type", typ.String()), zap.Int("fieldLen", fieldLen))
+	logging.Logger.Debug("Type received", zap.String("type", typ.String()), zap.Int("fieldLen", fieldLen))
 	reader := csv.NewReader(r)
 	reader.Comma = delimiter
 	reader.ReuseRecord = true
 	reader.FieldsPerRecord = -1
 	reader.TrimLeadingSpace = true
 
-	var tags []*CsvTag
+	var tags []*Tag
 	ignoredFieldCount := 0
 	for i := 0; i < fieldLen; i++ {
 		f := typ.Field(i)
@@ -47,13 +62,13 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 			if len(name) == 0 {
 				name = f.Name
 			}
-			ct := &CsvTag{Name: name, Ignore: name == "-", Index: i}
+			ct := &Tag{Name: name, Ignore: name == "-", Index: i}
 			tags = append(tags, ct)
 			if name == "-" {
 				ignoredFieldCount++
 			}
 		} else {
-			ct := &CsvTag{Name: f.Name, Ignore: false, Index: i}
+			ct := &Tag{Name: f.Name, Ignore: false, Index: i}
 			tags = append(tags, ct)
 		}
 	}
@@ -63,10 +78,10 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 	if hasTitleRow {
 		titles, err := reader.Read()
 		if err == io.EOF {
-			return recordArr, err
+			return err
 		} else if err != nil {
 			logging.Logger.Error("Can't title row", zap.Error(err))
-			return recordArr, err
+			return err
 		}
 		logging.Logger.Debug("Titles read", zap.Any("titles", titles))
 		if orderByTitles {
@@ -81,13 +96,14 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 					}
 				}
 				if !tag.Ignore {
-					return recordArr, fmt.Errorf("Required field not found on CSV Title:%s Index:%d", tag.Name, tag.Index)
+					return fmt.Errorf("Required field not found on CSV Title:%s Index:%d", tag.Name, tag.Index)
 				}
 				columnIndexMatch = append(columnIndexMatch, -1)
 			}
 		}
 		logging.Logger.Debug("Titles Matched", zap.Any("matches", columnIndexMatch))
 	}
+
 	logging.Logger.Debug("Reading Rows")
 	for rowIndex := 0; true; rowIndex++ {
 		var row []string
@@ -95,17 +111,15 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 			break
 		} else if err != nil {
 			logging.Logger.Error("Can't read csv", zap.Error(err))
-			return recordArr, err
+			return err
 		} else {
 			row = line
 		}
 
-		if len(row) > fieldLen-ignoredFieldCount {
-			return recordArr, fmt.Errorf("Column count error at row %d Expected %d Received %d. Content: %s", rowIndex, fieldLen, len(row), strings.Join(row, ","))
-		}
-
-		//TODO: support callback on
-		//TODO: add pointer support
+		// TODO: no need for this but check more, dig deeper
+		// if len(row) > fieldLen-ignoredFieldCount {
+		// 	return fmt.Errorf("Column count error at row %d Expected %d Received %d. Content: %s", rowIndex, fieldLen, len(row), strings.Join(row, ","))
+		// }
 		ins := reflect.New(typ).Elem()
 		for fIndex := 0; fIndex < fieldLen; fIndex++ {
 			cIndex := fIndex
@@ -143,7 +157,7 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 					field.SetInt(int64(i))
 				} else {
 					//TODO: field.String() is not printing good
-					return recordArr, fmt.Errorf(`Field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e)
+					return fmt.Errorf(`Field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e)
 				}
 			case reflect.Uint,
 				reflect.Uint8,
@@ -153,14 +167,14 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 				if i, e := strconv.ParseUint(value, 10, 64); e == nil {
 					field.SetUint(i)
 				} else {
-					return recordArr, fmt.Errorf(`Field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e)
+					return fmt.Errorf(`Field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e)
 				}
 			case reflect.Float32,
 				reflect.Float64:
 				if i, e := strconv.ParseFloat(value, 64); e == nil {
 					field.SetFloat(i)
 				} else {
-					return recordArr, fmt.Errorf(`Field type converting error. Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, typ.Name(), field.String(), row[fIndex], e)
+					return fmt.Errorf(`Field type converting error. Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, typ.Name(), field.String(), row[fIndex], e)
 				}
 			case reflect.Bool:
 				field.SetBool(value == "true")
@@ -169,7 +183,7 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 				if e != nil {
 					t, eT := time.Parse(timeLayout, value)
 					if eT != nil {
-						return recordArr, fmt.Errorf(`Field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v" \n "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e, eT)
+						return fmt.Errorf(`Field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v" \n "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e, eT)
 					}
 					if isPtr {
 						field.Set(reflect.ValueOf(&t))
@@ -180,10 +194,12 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 					field.Set(reflect.ValueOf(time.Unix(0, i*int64(time.Millisecond))))
 				}
 			default:
-				return recordArr, fmt.Errorf(`Field type converting NOT FOUND error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex])
+				return fmt.Errorf(`Field type converting NOT FOUND error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex])
 			}
 		}
-		recordArr = append(recordArr, ins.Interface())
+		if err := onItem(ins.Interface()); err != nil {
+			return err
+		}
 	}
-	return recordArr, nil
+	return nil
 }
