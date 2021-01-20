@@ -2,12 +2,18 @@
 // Also a single point to control & use all flags.
 package flags
 
-import "flag"
+import (
+	"flag"
+	"os"
+	"strings"
+)
 
 func init() {
 	Config = flag.String("config", "config.json", "Location of the config file.")
 	Command = flag.String("command", "server", "Command for the executable.")
-	flag.Parse()
+	if !strings.HasSuffix(os.Args[0], ".test") {
+		flag.Parse()
+	}
 
 }
 
