@@ -134,6 +134,9 @@ func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter ru
 			if cIndex == -1 {
 				continue
 			}
+			if cIndex >= len(row) {
+				continue
+			}
 			value := row[cIndex]
 
 			if value == "" {
