@@ -12,10 +12,10 @@ import (
 )
 
 // NewList creates a new list function.
-func NewList(in interface{}) func(w http.ResponseWriter, r *http.Request) {
+func NewList(in interface{}, preloads ...string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		query, _ := r.Context().Value(query.QueryContextKey).(*query.Query)
-		records, count, err := dbutil.List(dbutil.DB(), in, query)
+		records, count, err := dbutil.List(dbutil.DB(), in, query, preloads...)
 		if err != nil {
 			resources.Response500(w, r, err)
 			return
