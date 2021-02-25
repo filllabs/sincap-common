@@ -8,8 +8,8 @@ import (
 	"gitlab.com/sincap/sincap-common/resources/query"
 
 	"github.com/fatih/structs"
-	"github.com/jinzhu/gorm"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 // ListSmartSelect calls ListByQuery or ListAll according to the query parameter with smart select support
@@ -42,7 +42,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 	records := slice.Interface()
 
 	// Get count
-	count := -1
+	var count int64 = -1
 	db := GenerateDB(query, DB, typ).Table(tableName)
 
 	etyp := reflect.TypeOf(typ)
@@ -73,7 +73,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 			entity := recordArr.Index(i).Interface()
 			filteredList = append(filteredList, entity)
 		}
-		return filteredList, count, result.Error
+		return filteredList, int(count), result.Error
 	}
 	for i := 0; i < recordArr.Len(); i++ {
 		entity := recordArr.Index(i).Interface()
@@ -84,7 +84,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 		}
 		filteredList = append(filteredList, filtered)
 	}
-	return filteredList, count, result.Error
+	return filteredList, int(count), result.Error
 }
 
 // ListAllSmartSelect returns all records
@@ -150,7 +150,7 @@ func Delete(DB *gorm.DB, record interface{}) error {
 
 // DB Returns default DB connection clone
 func DB() *gorm.DB {
-	return dbconn.GetDefault().New()
+	return dbconn.GetDefault()
 }
 
 // Preload opens "auto_preload" for the given DB
@@ -169,7 +169,9 @@ func AddPreloads(db *gorm.DB, preloads ...string) *gorm.DB {
 }
 func addPreloads(db *gorm.DB, preloads []string) *gorm.DB {
 	for _, field := range preloads {
-		db = db.Preload(field)
+		// db = db.Preload(field)
+		db = db.Joins(field)
+		// "JOIN emails ON emails.user_id = users.id AND emails.email = ?"
 	}
 	return db
 }

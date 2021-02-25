@@ -4,11 +4,9 @@ import (
 	"gitlab.com/sincap/sincap-common/dbconn/zapgorm"
 	"gitlab.com/sincap/sincap-common/logging"
 
-	"github.com/jinzhu/gorm"
 	"go.uber.org/zap"
-
+	"gorm.io/gorm"
 	// for Driver support
-	_ "github.com/jinzhu/gorm/dialects/mysql"
 )
 
 // DB connection for all DB operatins
