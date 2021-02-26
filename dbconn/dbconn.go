@@ -2,6 +2,7 @@
 package dbconn
 
 import (
+	"gitlab.com/sincap/sincap-common/dbconn/zapgorm"
 	"gitlab.com/sincap/sincap-common/logging"
 
 	"go.uber.org/zap"
@@ -33,8 +34,8 @@ func Configure(dbConfs []DBConfig) {
 			args[i] = v
 		}
 		conn, err := gorm.Open(mysql.Open(conf.Args[0]), &gorm.Config{
-			NamingStrategy: AsIsNamingStrategy(),
-			// Logger:                                   zapgorm.New(logging.Logger),
+			NamingStrategy:                           AsIsNamingStrategy(),
+			Logger:                                   zapgorm.New(logging.Logger),
 			DisableForeignKeyConstraintWhenMigrating: true,
 			SkipDefaultTransaction:                   true,
 		})

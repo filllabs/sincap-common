@@ -1,13 +1,17 @@
 package dbutil
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // Model is default model with soft delete
 type Model struct {
 	ID        uint `gorm:"primary_key"`
 	CreatedAt *time.Time
 	UpdatedAt *time.Time
-	DeletedAt *time.Time `gorm:"index"`
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 // ModelHD is for hard delete

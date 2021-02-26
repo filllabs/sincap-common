@@ -46,11 +46,8 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 	db := GenerateDB(query, DB, typ).Table(tableName)
 
 	eTyp := reflect.TypeOf(typ)
-	_, isFieldFound := eTyp.FieldByName("DeletedAt")
 	cDB := db
-	if isFieldFound {
-		cDB = cDB.Where(tableName + ".DeletedAt IS NULL")
-	}
+
 	cDB = cDB.Count(&count)
 	if cDB.Error != nil {
 		return make([]interface{}, 0, 0), 0, cDB.Error

@@ -44,36 +44,16 @@ func (l Logger) Error(ctx context.Context, msg string, data ...interface{}) {
 
 // Trace print sql message
 func (l Logger) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
-	l.zap.Error("Trace is not supported")
-
-	// level := gormLevel(l.level.Level())
-	// if level > logger.Silent {
-	// 	elapsed := time.Since(begin)
-	// 	switch {
-	// 	case err != nil && level >= logger.Error:
-	// 		sql, rows := fc()
-	// 		if rows == -1 {
-	// 			l.Printf(l.traceErrStr, utils.FileWithLineNum(), err, float64(elapsed.Nanoseconds())/1e6, "-", sql)
-	// 		} else {
-	// 			l.Printf(l.traceErrStr, utils.FileWithLineNum(), err, float64(elapsed.Nanoseconds())/1e6, rows, sql)
-	// 		}
-	// 	case elapsed > l.SlowThreshold && l.SlowThreshold != 0 && level >= logger.Warn:
-	// 		sql, rows := fc()
-	// 		slowLog := fmt.Sprintf("SLOW SQL >= %v", l.SlowThreshold)
-	// 		if rows == -1 {
-	// 			l.Printf(l.traceWarnStr, utils.FileWithLineNum(), slowLog, float64(elapsed.Nanoseconds())/1e6, "-", sql)
-	// 		} else {
-	// 			l.Printf(l.traceWarnStr, utils.FileWithLineNum(), slowLog, float64(elapsed.Nanoseconds())/1e6, rows, sql)
-	// 		}
-	// 	case level == logger.Info:
-	// 		sql, rows := fc()
-	// 		if rows == -1 {
-	// 			l.Printf(l.traceStr, utils.FileWithLineNum(), float64(elapsed.Nanoseconds())/1e6, "-", sql)
-	// 		} else {
-	// 			l.Printf(l.traceStr, utils.FileWithLineNum(), float64(elapsed.Nanoseconds())/1e6, rows, sql)
-	// 		}
-	// 	}
-	// }
+	query, rowsAffected := fc()
+	end := time.Now()
+	l.zap.Debug("Trace",
+		zap.String("query", query),
+		zap.Int64("rowsAffected", rowsAffected),
+		// zap.Time("begin", begin),
+		// zap.Time("end", end),
+		zap.Duration("duration", end.Sub(begin)),
+		zap.Error(err),
+	)
 }
 
 func convertFields(values []interface{}) []zap.Field {
