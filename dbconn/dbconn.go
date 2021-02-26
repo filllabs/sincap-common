@@ -1,12 +1,14 @@
+// Package dbconn gives utility methods for creating and using gorm connections
 package dbconn
 
 import (
-	"gitlab.com/sincap/sincap-common/dbconn/zapgorm"
 	"gitlab.com/sincap/sincap-common/logging"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+
 	// for Driver support
+	"gorm.io/driver/mysql"
 )
 
 // DB connection for all DB operatins
@@ -23,7 +25,6 @@ type DBConfig struct {
 
 // Configure DB connection
 func Configure(dbConfs []DBConfig) {
-	gorm.AddNamingStrategy(AsIsNamingStrategy())
 
 	for i := range dbConfs {
 		conf := dbConfs[i]
@@ -31,20 +32,18 @@ func Configure(dbConfs []DBConfig) {
 		for i, v := range conf.Args {
 			args[i] = v
 		}
-		conn, err := gorm.Open(conf.Dialog, args...)
+		conn, err := gorm.Open(mysql.Open(conf.Args[0]), &gorm.Config{
+			NamingStrategy: AsIsNamingStrategy(),
+			// Logger:                                   zapgorm.New(logging.Logger),
+			DisableForeignKeyConstraintWhenMigrating: true,
+			SkipDefaultTransaction:                   true,
+		})
 
 		if err != nil {
 			logging.Logger.Fatal("DB Could not open connection.", zap.String("name", conf.Name), zap.Error(err))
 		}
-		if conf.LogMode {
-			conn.LogMode(conf.LogMode)
-			conn.SetLogger(zapgorm.New(logging.Logger))
-		} else {
-			conn.SetLogger(zapgorm.New(logging.Logger))
-		}
-		conn.SingularTable(true)
-		db[conf.Name] = conn.Set("gorm:association_autoupdate", false).Set("gorm:association_autocreate", false)
-
+		DB := conn.Session(&gorm.Session{FullSaveAssociations: true})
+		db[conf.Name] = DB
 		logging.Logger.Info("DB initialized", zap.String("name", conf.Name))
 	}
 }
@@ -66,4 +65,13 @@ func Get(name string) *gorm.DB {
 		return conn
 	}
 	return conn
+}
+
+// Close tries to close db connection returns if any error occures.
+func Close(db *gorm.DB) error {
+	sdb, err := db.DB()
+	if err == nil {
+		err = sdb.Close()
+	}
+	return err
 }
