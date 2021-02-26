@@ -49,7 +49,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 	_, isFieldFound := etyp.FieldByName("DeletedAt")
 	cDB := db
 	if isFieldFound {
-		cDB = cDB.Where("DeletedAt IS NULL")
+		cDB = cDB.Where(tableName + ".DeletedAt IS NULL")
 	}
 	cDB = cDB.Count(&count)
 	if cDB.Error != nil {
