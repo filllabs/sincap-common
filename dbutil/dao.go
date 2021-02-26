@@ -45,8 +45,8 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 	var count int64 = -1
 	db := GenerateDB(query, DB, typ).Table(tableName)
 
-	etyp := reflect.TypeOf(typ)
-	_, isFieldFound := etyp.FieldByName("DeletedAt")
+	eTyp := reflect.TypeOf(typ)
+	_, isFieldFound := eTyp.FieldByName("DeletedAt")
 	cDB := db
 	if isFieldFound {
 		cDB = cDB.Where(tableName + ".DeletedAt IS NULL")
@@ -59,7 +59,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 	// Add Offset and limit than select
 	db = db.Offset(query.Offset)
 	db = db.Limit(query.Limit)
-	db = addPreloads(db, preloads)
+	db = addPreloads(eTyp, db, preloads)
 	result := db.Find(records)
 	if result.Error != nil {
 		return make([]interface{}, 0, 0), 0, result.Error
@@ -89,10 +89,11 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 
 // ListAllSmartSelect returns all records
 func ListAllSmartSelect(DB *gorm.DB, typ interface{}, styp interface{}, preloads []string) (interface{}, int, error) {
-	tableName := reflect.TypeOf(typ).Name()
+	eTyp := reflect.TypeOf(typ)
+	tableName := eTyp.Name()
 	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(styp)))
 	records := slice.Interface()
-	result := addPreloads(DB, preloads).Table(tableName).Find(records)
+	result := addPreloads(eTyp, DB, preloads).Table(tableName).Find(records)
 	recordArr := reflect.ValueOf(records).Elem()
 
 	return recordArr.Interface(), recordArr.Len(), result.Error
@@ -164,13 +165,22 @@ func Associations(DB *gorm.DB) *gorm.DB {
 }
 
 // AddPreloads helps you to add preloads to the given DB
-func AddPreloads(db *gorm.DB, preloads ...string) *gorm.DB {
-	return addPreloads(db, preloads)
+func AddPreloads(typ reflect.Type, db *gorm.DB, preloads ...string) *gorm.DB {
+	return addPreloads(typ, db, preloads)
 }
-func addPreloads(db *gorm.DB, preloads []string) *gorm.DB {
+func addPreloads(typ reflect.Type, db *gorm.DB, preloads []string) *gorm.DB {
 	for _, field := range preloads {
-		// db = db.Preload(field)
-		db = db.Joins(field)
+		fType, ok := typ.FieldByName(field)
+		if !ok {
+			db = db.Joins(field)
+			continue
+		}
+		_, isM2m := GetMany2ManyTableName(&fType)
+		if isM2m { // many2many does not support joins.
+			db = db.Preload(field)
+		} else {
+			db = db.Joins(field)
+		}
 		// "JOIN emails ON emails.user_id = users.id AND emails.email = ?"
 	}
 	return db
