@@ -9,11 +9,10 @@ import (
 
 	"gitlab.com/sincap/sincap-common/logging"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 
 	"gitlab.com/sincap/sincap-common/reflection"
 	"gitlab.com/sincap/sincap-common/resources/query"
-
-	"github.com/jinzhu/gorm"
 )
 
 var timeKind = reflect.TypeOf(time.Time{}).Kind()
