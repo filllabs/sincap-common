@@ -158,7 +158,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 			}
 
 		} else {
-			condition = getCondition(condition, filter.Name, filter.Value, filter.Operation)
+			condition = getCondition(condition, typ.Name()+"."+filter.Name, filter.Value, filter.Operation)
 			field, isFieldFound := typ.FieldByName(filter.Name)
 			if !isFieldFound {
 				return "", values, fmt.Errorf("Can't find field for %s", filter.Name)
