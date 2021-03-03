@@ -108,14 +108,14 @@ func generateQQuery(structType reflect.Type, q string) ([]string, []interface{},
 				table := reflection.ExtractRealType(fieldTyp).Name()
 				if prefix, isPoly := getPolymorphicPrefix(&field); isPoly {
 					polyID := prefix + "ID"
-					cond = append(cond, "ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
+					cond = append(cond, structType.Name()+".ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
 					cond = append(cond, strings.Join(w, " OR "))
 					cond = append(cond, ") )")
 					where = append(where, strings.Join(cond, " "))
 				} else if m2mTable, isM2M := GetMany2ManyTableName(&field); isM2M {
-					srcRef := structType.Name() + "_ID"
-					destRef := table + "_ID"
-					cond = append(cond, "ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
+					srcRef := structType.Name() + "ID"
+					destRef := table + "ID"
+					cond = append(cond, structType.Name()+".ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
 					cond = append(cond, strings.Join(w, " OR "))
 					cond = append(cond, ")", ")", ")", ")")
 					where = append(where, strings.Join(cond, " "))
@@ -253,9 +253,9 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 		}
 		condition = append(condition, "AND", polyID, "=", "`"+outerTable+"`.ID", "AND", polyType, "=", "'"+outerTable+"'", ")", ")")
 	} else if m2mTable, isM2M := GetMany2ManyTableName(&field); isM2M {
-		srcRef := structType.Name() + "_ID"
-		destRef := table + "_ID"
-		condition = append(condition, "ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
+		srcRef := structType.Name() + "ID"
+		destRef := table + "ID"
+		condition = append(condition, structType.Name()+".ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
 		condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
 		condition = append(condition, ")", ")", ")", ")")
 	} else {
