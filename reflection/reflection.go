@@ -10,3 +10,11 @@ func ExtractRealType(field reflect.Type) reflect.Type {
 	}
 	return field
 }
+
+// Depointer helps to extract depointer the given type
+func Depointer(field reflect.Type) reflect.Type {
+	if field.Kind() == reflect.Ptr {
+		return Depointer(field.Elem())
+	}
+	return field
+}
