@@ -257,7 +257,7 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 		polyID := prefix + "ID"
 		polyType := prefix + "Type"
 		outerTable := structType.Name()
-		condition = append(condition, structType.Name()+".ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
+		condition = append(condition, outerTable+".ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
 		if len(innerCond) > 0 {
 			condition = append(condition, innerCond)
 		} else {
