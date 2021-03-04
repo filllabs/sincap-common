@@ -16,6 +16,7 @@ import (
 )
 
 var timeKind = reflect.TypeOf(time.Time{}).Kind()
+var jsonType = reflect.TypeOf(JSON{})
 
 func getCondition(condition []string, field string, value interface{}, operation query.Operation) []string {
 	condition = append(condition, field)
@@ -108,14 +109,14 @@ func generateQQuery(structType reflect.Type, q string) ([]string, []interface{},
 				table := reflection.ExtractRealType(fieldTyp).Name()
 				if prefix, isPoly := getPolymorphicPrefix(&field); isPoly {
 					polyID := prefix + "ID"
-					cond = append(cond, "ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
+					cond = append(cond, structType.Name()+".ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
 					cond = append(cond, strings.Join(w, " OR "))
 					cond = append(cond, ") )")
 					where = append(where, strings.Join(cond, " "))
 				} else if m2mTable, isM2M := GetMany2ManyTableName(&field); isM2M {
-					srcRef := structType.Name() + "_ID"
-					destRef := table + "_ID"
-					cond = append(cond, "ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
+					srcRef := structType.Name() + "ID"
+					destRef := table + "ID"
+					cond = append(cond, structType.Name()+".ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
 					cond = append(cond, strings.Join(w, " OR "))
 					cond = append(cond, ")", ")", ")", ")")
 					where = append(where, strings.Join(cond, " "))
@@ -150,7 +151,19 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 
 		// If it has more than 1 field name it has inner fields (another table)
 		if len(fieldNames) > 1 {
-			if cond, f, err := generateFilterQuery(fieldNames, 1, typ, filter); err == nil {
+			// If it is json than handle different
+			field, isFieldFound := typ.FieldByName(fieldNames[0])
+			if !isFieldFound {
+				return "", nil, fmt.Errorf("Can't find struct: %s field: %s", typ.Name(), filter.Name)
+			}
+
+			dp := reflection.Depointer(field.Type)
+			if dp == jsonType {
+				// concat new value
+				condition = getCondition(condition, typ.Name()+"."+fieldNames[0]+"->"+"'$."+fieldNames[1]+"'", filter.Value, query.LK)
+				values = append(values, filter.Value)
+				targetField = &field
+			} else if cond, f, err := generateFilterQuery(fieldNames, 1, typ, filter); err == nil {
 				condition = append(condition, cond)
 				targetField = f
 			} else {
@@ -158,7 +171,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 			}
 
 		} else {
-			condition = getCondition(condition, filter.Name, filter.Value, filter.Operation)
+			condition = getCondition(condition, typ.Name()+"."+filter.Name, filter.Value, filter.Operation)
 			field, isFieldFound := typ.FieldByName(filter.Name)
 			if !isFieldFound {
 				return "", values, fmt.Errorf("Can't find field for %s", filter.Name)
@@ -208,16 +221,18 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 	if structType.Kind() != reflect.Struct {
 		return "", nil, fmt.Errorf("%s is not struct", structType.Name())
 	}
-
 	field, isFieldFound := structType.FieldByName(fieldName)
 	if !isFieldFound {
 		return "", nil, fmt.Errorf("Can't find struct: %s field: %s", structType.Name(), filter.Name)
 	}
 	ft := reflection.ExtractRealType(field.Type)
+
+	logging.Logger.Info("TYPES", zap.Any("org", field.Type), zap.Any("orgKind", field.Type.Kind()), zap.Any("real", ft), zap.Any("realKind", ft.Kind()))
+
 	if ft.Kind() != reflect.Struct && ft.Kind() != reflect.Slice {
 		return "", nil, fmt.Errorf("%s is not struct field in %s", filter.Name, structType.Name())
 	}
-
+	//TODO:check  maybe noo need previous extect handles it
 	if ft.Kind() == reflect.Slice {
 		ft = reflection.ExtractRealType(ft.Elem())
 	}
@@ -225,7 +240,6 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 	if !isInnerFieldFound {
 		return "", nil, fmt.Errorf("Can't find struct: %s inner field: %s", reflection.ExtractRealType(ft).Name(), filter.Name)
 	}
-
 	innerCond := ""
 	var targetField *reflect.StructField
 	var innerErr error
@@ -238,9 +252,7 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 	} else {
 		targetField = &innerField
 	}
-
 	table := reflection.ExtractRealType(ft).Name()
-
 	if prefix, isPoly := getPolymorphicPrefix(&field); isPoly {
 		polyID := prefix + "ID"
 		polyType := prefix + "Type"
@@ -253,9 +265,9 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 		}
 		condition = append(condition, "AND", polyID, "=", "`"+outerTable+"`.ID", "AND", polyType, "=", "'"+outerTable+"'", ")", ")")
 	} else if m2mTable, isM2M := GetMany2ManyTableName(&field); isM2M {
-		srcRef := structType.Name() + "_ID"
-		destRef := table + "_ID"
-		condition = append(condition, "ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
+		srcRef := structType.Name() + "ID"
+		destRef := table + "ID"
+		condition = append(condition, structType.Name()+".ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
 		condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
 		condition = append(condition, ")", ")", ")", ")")
 	} else {
