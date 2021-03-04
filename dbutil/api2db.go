@@ -271,7 +271,7 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 		condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
 		condition = append(condition, ")", ")", ")", ")")
 	} else {
-		condition = append(condition, fieldName+"ID", "IN (", "SELECT ID FROM", table, "WHERE (")
+		condition = append(condition, structType.Name()+"."+fieldName+"ID", "IN (", "SELECT ID FROM", table, "WHERE (")
 		if len(innerCond) > 0 {
 			condition = append(condition, innerCond)
 		} else {
