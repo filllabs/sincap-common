@@ -35,7 +35,7 @@ func Configure(dbConfs []DBConfig) {
 		}
 		conn, err := gorm.Open(mysql.Open(conf.Args[0]), &gorm.Config{
 			NamingStrategy:                           AsIsNamingStrategy(),
-			Logger:                                   zapgorm.New(logging.Logger),
+			Logger:                                   zapgorm.New(logging.Logger, conf.LogMode),
 			DisableForeignKeyConstraintWhenMigrating: true,
 			SkipDefaultTransaction:                   true,
 		})

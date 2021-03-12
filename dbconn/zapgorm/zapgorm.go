@@ -14,11 +14,12 @@ import (
 type Logger struct {
 	level *zap.AtomicLevel
 	zap   *zap.Logger
+	trace bool
 }
 
 // New creates and returns a new loggger
-func New(logger *zap.Logger) Logger {
-	return Logger{zap: logger}
+func New(logger *zap.Logger, trace bool) Logger {
+	return Logger{zap: logger, trace: trace}
 }
 
 // LogMode sets the log level to zap logger and returns the instance
@@ -44,6 +45,9 @@ func (l Logger) Error(ctx context.Context, msg string, data ...interface{}) {
 
 // Trace print sql message
 func (l Logger) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
+	if !l.trace {
+		return
+	}
 	query, rowsAffected := fc()
 	end := time.Now()
 	l.zap.Debug("Trace",
