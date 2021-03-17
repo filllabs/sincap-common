@@ -1,24 +1,24 @@
-// Package flags initializes all flags and parses them.
-// Also a single point to control & use all flags.
+// Package flags  helps to parse flags.
 package flags
 
 import (
+	"errors"
 	"flag"
-	"os"
-	"strings"
 )
 
-func init() {
-	Config = flag.String("config", "config.json", "Location of the config file.")
-	Command = flag.String("command", "server", "Command for the executable.")
-	if !strings.HasSuffix(os.Args[0], ".test") {
-		flag.Parse()
+// Parse takes a slice of strings () and parses command line flags
+func Parse(fArr ...string) (*flag.FlagSet, error) {
+	fs := flag.NewFlagSet("", flag.PanicOnError)
+	length := len(fArr)
+	if length%3 != 0 {
+		return nil, errors.New("input array must be dividable by 3 (name,value,usage)")
 	}
 
+	for i := 0; i < len(fArr); i += 3 {
+		fs.String(fArr[i], fArr[i+1], fArr[i+2])
+	}
+	return fs, nil
 }
 
-// Config is the configuration path to read config.json
-var Config *string
-
-// Command is the command name to run server/init etc.
-var Command *string
+// Defaults are the information needed for config and commanf flags.
+var Defaults = []string{"config", "config.json", "Location of the config file.", "command", "server", "Command for the executable."}
