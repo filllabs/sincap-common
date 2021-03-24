@@ -54,9 +54,24 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 	typ := reflect.TypeOf(entity)
 
 	//TODO: checkfieldnames with model
-
 	if len(q.Sort) > 0 {
-		db = db.Order(strings.Join(q.Sort, ", "))
+		var sortFields []string 
+		for _, s := range q.Sort {
+			values := strings.Split(s, " ")
+			fieldNames:=strings.Split(values[0],".")
+			field, isFieldFound := typ.FieldByName(fieldNames[0])
+			if isFieldFound {
+				dp := reflection.Depointer(field.Type)
+				if dp == jsonType {
+					c:=  "CAST("+typ.Name()+"."+fieldNames[0]+"->"+"'$."+fieldNames[1]+"'" +"AS CHAR) " +values[1]
+					sortFields=append(sortFields,c);
+				}	else{
+					sortFields=append(sortFields,s);
+				}			
+			}
+
+		}
+		db = db.Order(strings.Join(sortFields, ", "))
 	}
 	if len(q.Filter) > 0 {
 		where, values, err := filter2Sql(q.Filter, typ)
