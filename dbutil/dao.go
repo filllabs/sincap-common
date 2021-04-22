@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/sincap/sincap-common/dbconn"
 	"gitlab.com/sincap/sincap-common/logging"
+	"gitlab.com/sincap/sincap-common/reflection"
 	"gitlab.com/sincap/sincap-common/resources/query"
 
 	"github.com/fatih/structs"
@@ -171,25 +172,29 @@ func AddPreloads(typ reflect.Type, db *gorm.DB, preloads ...string) *gorm.DB {
 }
 func addPreloads(typ reflect.Type, db *gorm.DB, preloads []string) *gorm.DB {
 	for _, field := range preloads {
-		fType, ok := typ.FieldByName(field)
 		isNested := strings.Contains(field, ".")
-
-		if !ok && !isNested {
+		if isNested {
+			db = db.Preload(field)
+			continue
+		}
+		fType, ok := typ.FieldByName(field)
+		if !ok {
 			db = db.Joins(field)
 			continue
 		}
+		rFt := reflection.Depointer(fType.Type)
+		isSlice := rFt.Kind() == reflect.Slice
 
-		if isNested {
+		if isSlice {
 			db = db.Preload(field)
 		} else if _, isM2m := getMany2Many(&fType); isM2m { // many2many does not support joins.
 			db = db.Preload(field)
+		} else if _, isPoly := getPolymorphic(&fType); isPoly { // polymorphic does not support joins.
+			db = db.Preload(field)
 		} else {
-			if _, isPoly := getPolymorphic(&fType); isPoly { // polymorphic does not support joins.
-				db = db.Preload(field)
-			} else {
-				db = db.Joins(field)
-			}
+			db = db.Joins(field)
 		}
+
 		// "JOIN emails ON emails.user_id = users.id AND emails.email = ?"
 	}
 	return db
