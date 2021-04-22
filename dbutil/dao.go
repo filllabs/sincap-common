@@ -103,7 +103,7 @@ func ListAll(DB *gorm.DB, typ interface{}, preloads []string) (interface{}, int,
 
 // Create Record
 func Create(DB *gorm.DB, record interface{}) error {
-	result := DB.Create(record)
+	result := DB.Model(record).Create(record)
 	if result.Error != nil {
 		logging.Logger.Error("Create error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
 	}
@@ -111,7 +111,10 @@ func Create(DB *gorm.DB, record interface{}) error {
 }
 
 // Read Record
-func Read(DB *gorm.DB, record interface{}, id uint) error {
+func Read(DB *gorm.DB, record interface{}, id uint, preloads ...string) error {
+	if len(preloads) > 0 {
+		DB = addPreloads(reflect.TypeOf(record), DB, preloads)
+	}
 	result := DB.First(record, id)
 	if result.Error != nil {
 		logging.Logger.Error("Read error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Uint("id", id))
@@ -158,7 +161,7 @@ func Preload(DB *gorm.DB) *gorm.DB {
 
 // Associations opens "save_associations" for the given DB
 func Associations(DB *gorm.DB) *gorm.DB {
-	return DB.Set("gorm:association_autoupdate", true).Set("gorm:association_autocreate", true)
+	return DB.Session(&gorm.Session{FullSaveAssociations: true})
 }
 
 // AddPreloads helps you to add preloads to the given DB
