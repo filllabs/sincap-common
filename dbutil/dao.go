@@ -2,6 +2,7 @@ package dbutil
 
 import (
 	"reflect"
+	"strings"
 
 	"gitlab.com/sincap/sincap-common/dbconn"
 	"gitlab.com/sincap/sincap-common/logging"
@@ -171,15 +172,23 @@ func AddPreloads(typ reflect.Type, db *gorm.DB, preloads ...string) *gorm.DB {
 func addPreloads(typ reflect.Type, db *gorm.DB, preloads []string) *gorm.DB {
 	for _, field := range preloads {
 		fType, ok := typ.FieldByName(field)
-		if !ok {
+		isNested := strings.Contains(field, ".")
+
+		if !ok && !isNested {
 			db = db.Joins(field)
 			continue
 		}
-		_, isM2m := GetMany2ManyTableName(&fType)
-		if isM2m { // many2many does not support joins.
+
+		if isNested {
+			db = db.Preload(field)
+		} else if _, isM2m := getMany2Many(&fType); isM2m { // many2many does not support joins.
 			db = db.Preload(field)
 		} else {
-			db = db.Joins(field)
+			if _, isPoly := getPolymorphic(&fType); isPoly { // polymorphic does not support joins.
+				db = db.Preload(field)
+			} else {
+				db = db.Joins(field)
+			}
 		}
 		// "JOIN emails ON emails.user_id = users.id AND emails.email = ?"
 	}

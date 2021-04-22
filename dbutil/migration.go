@@ -25,7 +25,7 @@ func DropRelationTables(DB *gorm.DB, models ...interface{}) {
 		typ := reflection.ExtractRealType(reflect.TypeOf(model))
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
-			if name, isM2M := GetMany2ManyTableName(&f); isM2M {
+			if name, isM2M := getMany2Many(&f); isM2M {
 				tables = append(tables, name)
 			}
 		}

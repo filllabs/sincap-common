@@ -55,19 +55,19 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 
 	//TODO: checkfieldnames with model
 	if len(q.Sort) > 0 {
-		var sortFields []string 
+		var sortFields []string
 		for _, s := range q.Sort {
 			values := strings.Split(s, " ")
-			fieldNames:=strings.Split(values[0],".")
+			fieldNames := strings.Split(values[0], ".")
 			field, isFieldFound := typ.FieldByName(fieldNames[0])
 			if isFieldFound {
 				dp := reflection.Depointer(field.Type)
 				if dp == jsonType {
-					c:=  "CAST("+typ.Name()+"."+fieldNames[0]+"->"+"'$."+fieldNames[1]+"'" +"AS CHAR) " +values[1]
-					sortFields=append(sortFields,c);
-				}	else{
-					sortFields=append(sortFields,s);
-				}			
+					c := "CAST(" + typ.Name() + "." + fieldNames[0] + "->" + "'$." + fieldNames[1] + "'" + "AS CHAR) " + values[1]
+					sortFields = append(sortFields, c)
+				} else {
+					sortFields = append(sortFields, s)
+				}
 			}
 
 		}
@@ -122,13 +122,13 @@ func generateQQuery(structType reflect.Type, q string) ([]string, []interface{},
 					logging.Logger.Warn("Can't create query from q", zap.Error(err))
 				}
 				table := reflection.ExtractRealType(fieldTyp).Name()
-				if prefix, isPoly := getPolymorphicPrefix(&field); isPoly {
+				if prefix, isPoly := getPolymorphic(&field); isPoly {
 					polyID := prefix + "ID"
 					cond = append(cond, structType.Name()+".ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
 					cond = append(cond, strings.Join(w, " OR "))
 					cond = append(cond, ") )")
 					where = append(where, strings.Join(cond, " "))
-				} else if m2mTable, isM2M := GetMany2ManyTableName(&field); isM2M {
+				} else if m2mTable, isM2M := getMany2Many(&field); isM2M {
 					srcRef := structType.Name() + "ID"
 					destRef := table + "ID"
 					cond = append(cond, structType.Name()+".ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
@@ -268,7 +268,7 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 		targetField = &innerField
 	}
 	table := reflection.ExtractRealType(ft).Name()
-	if prefix, isPoly := getPolymorphicPrefix(&field); isPoly {
+	if prefix, isPoly := getPolymorphic(&field); isPoly {
 		polyID := prefix + "ID"
 		polyType := prefix + "Type"
 		outerTable := structType.Name()
@@ -279,7 +279,7 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 			condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
 		}
 		condition = append(condition, "AND", polyID, "=", "`"+outerTable+"`.ID", "AND", polyType, "=", "'"+outerTable+"'", ")", ")")
-	} else if m2mTable, isM2M := GetMany2ManyTableName(&field); isM2M {
+	} else if m2mTable, isM2M := getMany2Many(&field); isM2M {
 		srcRef := structType.Name() + "ID"
 		destRef := table + "ID"
 		condition = append(condition, structType.Name()+".ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
@@ -297,19 +297,6 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 	return strings.Join(condition, " "), targetField, nil
 }
 
-func getPolymorphicPrefix(f *reflect.StructField) (string, bool) {
-	// get gorm tag
-	if tag, ok := f.Tag.Lookup("gorm"); ok {
-		props := strings.Split(tag, ";")
-		// find polymorphic info
-		for _, prop := range props {
-			if strings.HasPrefix(prop, "polymorphic:") {
-				return strings.TrimPrefix(prop, "polymorphic:"), true
-			}
-		}
-	}
-	return "", false
-}
 func getQapiQPrefix(f *reflect.StructField) (string, bool) {
 	// get gorm tag
 	if tag, ok := f.Tag.Lookup("qapi"); ok {
@@ -324,8 +311,8 @@ func getQapiQPrefix(f *reflect.StructField) (string, bool) {
 	return "", false
 }
 
-// GetMany2ManyTableName tries to read the table name of the gorm tag "many2many" from the given field.
-func GetMany2ManyTableName(f *reflect.StructField) (string, bool) {
+// getMany2Many tries to read the table name of the gorm tag "many2many" from the given field.
+func getMany2Many(f *reflect.StructField) (string, bool) {
 	// get gorm tag
 	if tag, ok := f.Tag.Lookup("gorm"); ok {
 		props := strings.Split(tag, ";")
@@ -333,6 +320,19 @@ func GetMany2ManyTableName(f *reflect.StructField) (string, bool) {
 		for _, prop := range props {
 			if strings.HasPrefix(prop, "many2many:") {
 				return strings.TrimPrefix(prop, "many2many:"), true
+			}
+		}
+	}
+	return "", false
+}
+func getPolymorphic(f *reflect.StructField) (string, bool) {
+	// get gorm tag
+	if tag, ok := f.Tag.Lookup("gorm"); ok {
+		props := strings.Split(tag, ";")
+		// find polymorphic info
+		for _, prop := range props {
+			if strings.HasPrefix(prop, "polymorphic:") {
+				return strings.TrimPrefix(prop, "polymorphic:"), true
 			}
 		}
 	}
