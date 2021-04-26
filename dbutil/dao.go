@@ -116,7 +116,7 @@ func Create(DB *gorm.DB, record interface{}) error {
 // Read Record
 func Read(DB *gorm.DB, record interface{}, id uint, preloads ...string) error {
 	if len(preloads) > 0 {
-		DB = addPreloads(reflect.TypeOf(record), DB, preloads)
+		DB = addPreloads(reflection.Depointer(reflect.TypeOf(record)), DB, preloads)
 	}
 	result := DB.First(record, id)
 	if result.Error != nil {
