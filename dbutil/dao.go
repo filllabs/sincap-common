@@ -12,6 +12,7 @@ import (
 	"github.com/fatih/structs"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ListSmartSelect calls ListByQuery or ListAll according to the query parameter with smart select support
@@ -158,7 +159,7 @@ func DB() *gorm.DB {
 
 // Preload opens "auto_preload" for the given DB
 func Preload(DB *gorm.DB) *gorm.DB {
-	return DB.Set("gorm:auto_preload", true)
+	return DB.Preload(clause.Associations)
 }
 
 // Associations opens "save_associations" for the given DB
