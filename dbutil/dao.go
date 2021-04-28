@@ -53,7 +53,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 
 	cDB = cDB.Count(&count)
 	if cDB.Error != nil {
-		return make([]interface{}, 0, 0), 0, cDB.Error
+		return make([]interface{}, 0), 0, cDB.Error
 	}
 
 	// Add Offset and limit than select
@@ -62,7 +62,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 	db = addPreloads(eTyp, db, preloads)
 	result := db.Find(records)
 	if result.Error != nil {
-		return make([]interface{}, 0, 0), 0, result.Error
+		return make([]interface{}, 0), 0, result.Error
 	}
 	recordArr := reflect.ValueOf(records).Elem()
 
@@ -157,7 +157,7 @@ func DB() *gorm.DB {
 	return dbconn.GetDefault()
 }
 
-// Preload opens "auto_preload" for the given DB
+// Preload opens preload all Associations for the given DB. NOTE: Set DB.Model before calling this or it gets error
 func Preload(DB *gorm.DB) *gorm.DB {
 	return DB.Preload(clause.Associations)
 }
