@@ -12,7 +12,6 @@ import (
 	"github.com/fatih/structs"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // ListSmartSelect calls ListByQuery or ListAll according to the query parameter with smart select support
@@ -155,11 +154,6 @@ func Delete(DB *gorm.DB, record interface{}) error {
 // DB Returns default DB connection clone
 func DB() *gorm.DB {
 	return dbconn.GetDefault()
-}
-
-// Preload opens preload all Associations for the given DB. NOTE: Set DB.Model before calling this or it gets error
-func Preload(DB *gorm.DB) *gorm.DB {
-	return DB.Preload(clause.Associations)
 }
 
 // Associations opens "save_associations" for the given DB
