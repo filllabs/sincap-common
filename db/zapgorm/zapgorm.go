@@ -1,4 +1,4 @@
-// Package zapgorm is an integrator for using zap logger with gorm v2
+// Package zapgorm is an integration package for using zap logger with gorm v2
 package zapgorm
 
 import (
@@ -53,8 +53,6 @@ func (l Logger) Trace(ctx context.Context, begin time.Time, fc func() (string, i
 	l.zap.Debug("Trace",
 		zap.String("query", query),
 		zap.Int64("rowsAffected", rowsAffected),
-		// zap.Time("begin", begin),
-		// zap.Time("end", end),
 		zap.Duration("duration", end.Sub(begin)),
 		zap.Error(err),
 	)

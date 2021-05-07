@@ -15,7 +15,7 @@ type InterfaceArrayMarshaller struct {
 // MarshalLogArray writes the defined array
 func (a *InterfaceArrayMarshaller) MarshalLogArray(enc zapcore.ArrayEncoder) error {
 	for _, m := range a.Arr {
-		name := reflection.ExtractRealType(reflect.TypeOf(m)).Name()
+		name := reflection.ExtractRealTypeField(reflect.TypeOf(m)).Name()
 		enc.AppendString(name)
 	}
 	return nil

@@ -1,3 +1,4 @@
+// Package csv contains necessary functions in order to read and write CSV files via struct and field tags
 package csv
 
 import (
@@ -43,7 +44,7 @@ func Read(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByT
 
 // ReadWithCallback creates a csv reader from the given reader and calls onItem function on evert row
 func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter rune, orderByTitles bool, onItem func(i interface{}) error) error {
-	typ := reflection.ExtractRealType(reflect.TypeOf(t))
+	typ := reflection.ExtractRealTypeField(reflect.TypeOf(t))
 	fieldLen := typ.NumField()
 	logging.Logger.Debug("Type received", zap.String("type", typ.String()), zap.Int("fieldLen", fieldLen))
 	reader := csv.NewReader(r)
@@ -96,7 +97,7 @@ func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter ru
 					}
 				}
 				if !tag.Ignore {
-					return fmt.Errorf("Required field not found on CSV Title:%s Index:%d", tag.Name, tag.Index)
+					return fmt.Errorf("required field not found on CSV Title:%s Index:%d", tag.Name, tag.Index)
 				}
 				columnIndexMatch = append(columnIndexMatch, -1)
 			}
@@ -160,7 +161,7 @@ func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter ru
 					field.SetInt(int64(i))
 				} else {
 					//TODO: field.String() is not printing good
-					return fmt.Errorf(`Field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e)
+					return fmt.Errorf(`field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e)
 				}
 			case reflect.Uint,
 				reflect.Uint8,
@@ -170,14 +171,14 @@ func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter ru
 				if i, e := strconv.ParseUint(value, 10, 64); e == nil {
 					field.SetUint(i)
 				} else {
-					return fmt.Errorf(`Field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e)
+					return fmt.Errorf(`field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e)
 				}
 			case reflect.Float32,
 				reflect.Float64:
 				if i, e := strconv.ParseFloat(value, 64); e == nil {
 					field.SetFloat(i)
 				} else {
-					return fmt.Errorf(`Field type converting error. Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, typ.Name(), field.String(), row[fIndex], e)
+					return fmt.Errorf(`field type converting error. Type: "%s" Field: "%s" Value: "%s". Error: "%v"`, typ.Name(), field.String(), row[fIndex], e)
 				}
 			case reflect.Bool:
 				field.SetBool(value == "true")
@@ -186,7 +187,7 @@ func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter ru
 				if e != nil {
 					t, eT := time.Parse(timeLayout, value)
 					if eT != nil {
-						return fmt.Errorf(`Field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v" \n "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e, eT)
+						return fmt.Errorf(`field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v" \n "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e, eT)
 					}
 					if isPtr {
 						field.Set(reflect.ValueOf(&t))
@@ -197,7 +198,7 @@ func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter ru
 					field.Set(reflect.ValueOf(time.Unix(0, i*int64(time.Millisecond))))
 				}
 			default:
-				return fmt.Errorf(`Field type converting NOT FOUND error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex])
+				return fmt.Errorf(`field type converting NOT FOUND error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex])
 			}
 		}
 		if err := onItem(ins.Interface()); err != nil {

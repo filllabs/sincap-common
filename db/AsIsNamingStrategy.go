@@ -1,4 +1,4 @@
-package dbconn
+package db
 
 import (
 	"crypto/sha1"
@@ -12,34 +12,34 @@ import (
 // AsIsNamingStrategy creates a namingstrategy which returns desired names as is without any modification
 // like case or plural conversion
 func AsIsNamingStrategy() schema.Namer {
-	n := AsIsNamer{}
+	n := asIsNamer{}
 	return &n
 }
 
-type AsIsNamer struct {
+type asIsNamer struct {
 }
 
 // TableName convert string to table name
-func (n *AsIsNamer) TableName(table string) string { return table }
+func (n *asIsNamer) TableName(table string) string { return table }
 
 // ColumnName convert string to column name
-func (n *AsIsNamer) ColumnName(table, column string) string { return column }
+func (n *asIsNamer) ColumnName(table, column string) string { return column }
 
 // JoinTableName convert string to join table name
-func (n *AsIsNamer) JoinTableName(joinTable string) string { return joinTable }
+func (n *asIsNamer) JoinTableName(joinTable string) string { return joinTable }
 
 // RelationshipFKName generate fk name for relation
-func (n *AsIsNamer) RelationshipFKName(rel schema.Relationship) string {
+func (n *asIsNamer) RelationshipFKName(rel schema.Relationship) string {
 	return strings.Replace(fmt.Sprintf("fk_%s_%s", rel.Schema.Table, rel.Name), ".", "_", -1)
 }
 
 // CheckerName generate checker name
-func (n *AsIsNamer) CheckerName(table, column string) string {
+func (n *asIsNamer) CheckerName(table, column string) string {
 	return strings.Replace(fmt.Sprintf("chk_%s_%s", table, column), ".", "_", -1)
 }
 
 // IndexName generate index name
-func (n *AsIsNamer) IndexName(table, column string) string {
+func (n *asIsNamer) IndexName(table, column string) string {
 	idxName := fmt.Sprintf("idx_%v_%v", table, column)
 	idxName = strings.Replace(idxName, ".", "_", -1)
 

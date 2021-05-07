@@ -1,4 +1,4 @@
-package dbutil
+package util
 
 import (
 	"reflect"
@@ -22,10 +22,10 @@ func DropAll(DB *gorm.DB, models ...interface{}) {
 func DropRelationTables(DB *gorm.DB, models ...interface{}) {
 	var tables []string
 	for _, model := range models {
-		typ := reflection.ExtractRealType(reflect.TypeOf(model))
+		typ := reflection.ExtractRealTypeField(reflect.TypeOf(model))
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
-			if name, isM2M := getMany2Many(&f); isM2M {
+			if name, isM2M := GetMany2Many(&f); isM2M {
 				tables = append(tables, name)
 			}
 		}

@@ -1,4 +1,5 @@
-package dbutil
+// Package types contains special types for databases
+package types
 
 import (
 	"bytes"
@@ -26,7 +27,7 @@ func (j *JSON) Scan(value interface{}) error {
 	}
 	s, ok := value.([]byte)
 	if !ok {
-		return errors.New("Invalid Scan Source")
+		return errors.New("invalid scan source")
 	}
 	*j = append((*j)[0:0], s...)
 	return nil
@@ -88,10 +89,7 @@ func (j *JSON) Unmarshal(v interface{}) error {
 	if j == nil {
 		return errors.New("null point exception")
 	}
-	if err := json.Unmarshal([]byte(*j), v); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal([]byte(*j), v)
 }
 
 // IsNull checks if the value is null

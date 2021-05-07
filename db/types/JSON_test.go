@@ -1,15 +1,15 @@
-package dbutil_test
+package types_test
 
 import (
 	"encoding/json"
 	"reflect"
 	"testing"
 
-	"gitlab.com/sincap/sincap-common/dbutil"
+	"gitlab.com/sincap/sincap-common/db/types"
 )
 
-var jArr = dbutil.JSON(`["John","Jane"]`)
-var jMap = dbutil.JSON(`{"Name":"John","Surname":"Doe"}`)
+var jArr = types.JSON(`["John","Jane"]`)
+var jMap = types.JSON(`{"Name":"John","Surname":"Doe"}`)
 
 func TestJSON_UnmarshalArray(t *testing.T) {
 
@@ -18,7 +18,7 @@ func TestJSON_UnmarshalArray(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		j       *dbutil.JSON
+		j       *types.JSON
 		want    []interface{}
 		wantErr bool
 	}{
@@ -46,7 +46,7 @@ func TestJSON_UnmarshalMap(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		j       *dbutil.JSON
+		j       *types.JSON
 		want    map[string]interface{}
 		wantErr bool
 	}{

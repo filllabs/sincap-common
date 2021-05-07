@@ -1,3 +1,4 @@
+// Package json provides utility methods for centralising json rendering in order to make changes later easier for performance reasons.
 package json
 
 import (

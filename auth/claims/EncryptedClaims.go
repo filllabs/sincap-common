@@ -1,4 +1,4 @@
-package auth
+package claims
 
 import (
 	"crypto/subtle"
@@ -65,18 +65,18 @@ func (e EncryptedClaims) Valid() error {
 
 	// The claims below are optional, by default, so if they are set to the
 	// default value in Go, let's not fail the verification for them.
-	if e.VerifyExpiresAt(now, false) == false {
+	if !e.VerifyExpiresAt(now, false) {
 		delta := time.Unix(now, 0).Sub(time.Unix(e.ExpiresAt, 0))
 		vErr.Inner = fmt.Errorf("token is expired by %v", delta)
 		vErr.Errors |= jwt.ValidationErrorExpired
 	}
 
-	if e.VerifyIssuedAt(now, false) == false {
-		vErr.Inner = fmt.Errorf("Token used before issued")
+	if !e.VerifyIssuedAt(now, false) {
+		vErr.Inner = fmt.Errorf("token used before issued")
 		vErr.Errors |= jwt.ValidationErrorIssuedAt
 	}
 
-	if e.VerifyNotBefore(now, false) == false {
+	if !e.VerifyNotBefore(now, false) {
 		vErr.Inner = fmt.Errorf("token is not valid yet")
 		vErr.Errors |= jwt.ValidationErrorNotValidYet
 	}

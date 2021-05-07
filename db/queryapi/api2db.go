@@ -1,12 +1,13 @@
-package dbutil
+package queryapi
 
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
+	"gitlab.com/sincap/sincap-common/db/types"
+	"gitlab.com/sincap/sincap-common/db/util"
 	"gitlab.com/sincap/sincap-common/logging"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -16,7 +17,7 @@ import (
 )
 
 var timeKind = reflect.TypeOf(time.Time{}).Kind()
-var jsonType = reflect.TypeOf(JSON{})
+var jsonType = reflect.TypeOf(types.JSON{})
 
 func getCondition(condition []string, field string, value interface{}, operation query.Operation) []string {
 	condition = append(condition, field)
@@ -61,7 +62,7 @@ func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 			fieldNames := strings.Split(values[0], ".")
 			field, isFieldFound := typ.FieldByName(fieldNames[0])
 			if isFieldFound {
-				dp := reflection.Depointer(field.Type)
+				dp := reflection.DepointerField(field.Type)
 				if dp == jsonType {
 					c := "CAST(" + typ.Name() + "." + fieldNames[0] + "->" + "'$." + fieldNames[1] + "'" + "AS CHAR) " + values[1]
 					sortFields = append(sortFields, c)
@@ -112,7 +113,7 @@ func generateQQuery(structType reflect.Type, q string) ([]string, []interface{},
 	var values []interface{}
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
-		fieldTyp := reflection.ExtractRealType(field.Type)
+		fieldTyp := reflection.ExtractRealTypeField(field.Type)
 		tag, hasTag := getQapiQPrefix(&field)
 		if hasTag {
 			if fieldTyp.Kind() == reflect.Struct {
@@ -121,14 +122,14 @@ func generateQQuery(structType reflect.Type, q string) ([]string, []interface{},
 				if err != nil {
 					logging.Logger.Warn("Can't create query from q", zap.Error(err))
 				}
-				table := reflection.ExtractRealType(fieldTyp).Name()
-				if prefix, isPoly := getPolymorphic(&field); isPoly {
+				table := reflection.ExtractRealTypeField(fieldTyp).Name()
+				if prefix, isPoly := util.GetPolymorphic(&field); isPoly {
 					polyID := prefix + "ID"
 					cond = append(cond, structType.Name()+".ID", "IN (", "SELECT", polyID, "FROM", table, "WHERE (")
 					cond = append(cond, strings.Join(w, " OR "))
 					cond = append(cond, ") )")
 					where = append(where, strings.Join(cond, " "))
-				} else if m2mTable, isM2M := getMany2Many(&field); isM2M {
+				} else if m2mTable, isM2M := util.GetMany2Many(&field); isM2M {
 					srcRef := structType.Name() + "ID"
 					destRef := table + "ID"
 					cond = append(cond, structType.Name()+".ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
@@ -172,7 +173,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 				return "", nil, fmt.Errorf("Can't find struct: %s field: %s", typ.Name(), filter.Name)
 			}
 
-			dp := reflection.Depointer(field.Type)
+			dp := reflection.DepointerField(field.Type)
 			if dp == jsonType {
 				// concat new value
 				condition = getCondition(condition, typ.Name()+"."+fieldNames[0]+"->"+"'$."+fieldNames[1]+"'", filter.Value, query.LK)
@@ -195,12 +196,12 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 
 		}
 		where = append(where, strings.Join(condition, " "))
-		kind := reflection.ExtractRealType(targetField.Type).Kind()
+		kind := reflection.ExtractRealTypeField(targetField.Type).Kind()
 		if filter.Operation == query.IN {
 			inVals := strings.Split(filter.Value, "|")
 			for i := 0; i < len(inVals); i++ {
 				var err error
-				values, err = convertValue(filter, typ, kind, values, inVals[i])
+				values, err = util.ConvertValue(filter, typ, kind, values, inVals[i])
 				if err != nil {
 					return "", values, err
 				}
@@ -209,14 +210,14 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 			inVals := strings.Split(filter.Value, "*")
 			for i := 0; i < len(inVals); i++ {
 				var err error
-				values, err = convertValue(filter, typ, kind, values, inVals[i])
+				values, err = util.ConvertValue(filter, typ, kind, values, inVals[i])
 				if err != nil {
 					return "", values, err
 				}
 			}
 		} else {
 			var err error
-			values, err = convertValue(filter, typ, kind, values, filter.Value)
+			values, err = util.ConvertValue(filter, typ, kind, values, filter.Value)
 			if err != nil {
 				return "", values, err
 			}
@@ -240,7 +241,7 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 	if !isFieldFound {
 		return "", nil, fmt.Errorf("Can't find struct: %s field: %s", structType.Name(), filter.Name)
 	}
-	ft := reflection.ExtractRealType(field.Type)
+	ft := reflection.ExtractRealTypeField(field.Type)
 
 	logging.Logger.Info("TYPES", zap.Any("org", field.Type), zap.Any("orgKind", field.Type.Kind()), zap.Any("real", ft), zap.Any("realKind", ft.Kind()))
 
@@ -249,26 +250,26 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 	}
 	//TODO:check  maybe noo need previous extect handles it
 	if ft.Kind() == reflect.Slice {
-		ft = reflection.ExtractRealType(ft.Elem())
+		ft = reflection.ExtractRealTypeField(ft.Elem())
 	}
-	innerField, isInnerFieldFound := reflection.ExtractRealType(ft).FieldByName(innerFieldName)
+	innerField, isInnerFieldFound := reflection.ExtractRealTypeField(ft).FieldByName(innerFieldName)
 	if !isInnerFieldFound {
-		return "", nil, fmt.Errorf("Can't find struct: %s inner field: %s", reflection.ExtractRealType(ft).Name(), filter.Name)
+		return "", nil, fmt.Errorf("Can't find struct: %s inner field: %s", reflection.ExtractRealTypeField(ft).Name(), filter.Name)
 	}
 	innerCond := ""
 	var targetField *reflect.StructField
 	var innerErr error
 	// first dive into inner fields
 	if i < len(fieldNames)-1 {
-		innerCond, targetField, innerErr = generateFilterQuery(fieldNames, i+1, reflection.ExtractRealType(ft), filter)
+		innerCond, targetField, innerErr = generateFilterQuery(fieldNames, i+1, reflection.ExtractRealTypeField(ft), filter)
 		if innerErr != nil {
 			return "", targetField, innerErr
 		}
 	} else {
 		targetField = &innerField
 	}
-	table := reflection.ExtractRealType(ft).Name()
-	if prefix, isPoly := getPolymorphic(&field); isPoly {
+	table := reflection.ExtractRealTypeField(ft).Name()
+	if prefix, isPoly := util.GetPolymorphic(&field); isPoly {
 		polyID := prefix + "ID"
 		polyType := prefix + "Type"
 		outerTable := structType.Name()
@@ -279,7 +280,7 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 			condition = getCondition(condition, innerFieldName, filter.Value, filter.Operation)
 		}
 		condition = append(condition, "AND", polyID, "=", "`"+outerTable+"`.ID", "AND", polyType, "=", "'"+outerTable+"'", ")", ")")
-	} else if m2mTable, isM2M := getMany2Many(&field); isM2M {
+	} else if m2mTable, isM2M := util.GetMany2Many(&field); isM2M {
 		srcRef := structType.Name() + "ID"
 		destRef := table + "ID"
 		condition = append(condition, structType.Name()+".ID", "IN (", "SELECT", srcRef, "FROM", m2mTable, "WHERE (", destRef, "IN (", "SELECT ID FROM", table, "WHERE (")
@@ -309,71 +310,4 @@ func getQapiQPrefix(f *reflect.StructField) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-// getMany2Many tries to read the table name of the gorm tag "many2many" from the given field.
-func getMany2Many(f *reflect.StructField) (string, bool) {
-	// get gorm tag
-	if tag, ok := f.Tag.Lookup("gorm"); ok {
-		props := strings.Split(tag, ";")
-		// find many2many info
-		for _, prop := range props {
-			if strings.HasPrefix(prop, "many2many:") {
-				return strings.TrimPrefix(prop, "many2many:"), true
-			}
-		}
-	}
-	return "", false
-}
-func getPolymorphic(f *reflect.StructField) (string, bool) {
-	// get gorm tag
-	if tag, ok := f.Tag.Lookup("gorm"); ok {
-		props := strings.Split(tag, ";")
-		// find polymorphic info
-		for _, prop := range props {
-			if strings.HasPrefix(prop, "polymorphic:") {
-				return strings.TrimPrefix(prop, "polymorphic:"), true
-			}
-		}
-	}
-	return "", false
-}
-
-func convertValue(filter query.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
-	switch kind {
-	case reflect.String:
-		values = append(values, value)
-	case reflect.Int,
-		reflect.Int8,
-		reflect.Int16,
-		reflect.Int32,
-		reflect.Int64:
-		if i, e := strconv.Atoi(value.(string)); e == nil {
-			values = append(values, i)
-		}
-	case reflect.Uint,
-		reflect.Uint8,
-		reflect.Uint16,
-		reflect.Uint32,
-		reflect.Uint64:
-		if i, e := strconv.ParseUint(value.(string), 10, 64); e == nil {
-			values = append(values, i)
-		}
-	case reflect.Float32,
-		reflect.Float64:
-		if i, e := strconv.ParseFloat(value.(string), 64); e == nil {
-			values = append(values, i)
-		}
-	case reflect.Bool:
-		values = append(values, value.(string) == "true")
-	case timeKind:
-		i, err := strconv.ParseInt(value.(string), 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("QApi cannot parse date: %s for %s. Cause: %v", value.(string), filter.Name, err)
-		}
-		values = append(values, time.Unix(0, i*int64(time.Millisecond)))
-	default:
-		return nil, fmt.Errorf("Field type not supported for QApi %s : %s", typ.Name(), filter.Name)
-	}
-	return values, nil
 }

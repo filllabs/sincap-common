@@ -1,9 +1,11 @@
-package types
+package types_test
 
 import (
 	"reflect"
 	"sort"
 	"testing"
+
+	"gitlab.com/sincap/sincap-common/types"
 )
 
 type args struct {
@@ -16,7 +18,7 @@ type test struct {
 	want []string
 }
 
-func TestMapToStrings(t *testing.T) {
+func TestMapValuesAsStrings(t *testing.T) {
 	data := make(map[string]interface{})
 	data["a"] = "a"
 	data["b"] = "b"
@@ -32,16 +34,16 @@ func TestMapToStrings(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ValuesToStrings(tt.args.data)
+			got := types.MapValuesAsStrings(tt.args.data)
 			sort.Strings(got)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("MapToStrings() = %v, want %v", got, tt.want)
+				t.Errorf("MapValuesAsStrings() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestKeysString(t *testing.T) {
+func TestKeysAsStrings(t *testing.T) {
 	data := make(map[string]interface{})
 	data["a"] = "a"
 	data["b"] = "b"
@@ -51,7 +53,7 @@ func TestKeysString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := KeysString(tt.args.data)
+			got := types.MapKeysAsStrings(tt.args.data)
 			sort.Strings(got)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Keys() = %v, want %v", got, tt.want)

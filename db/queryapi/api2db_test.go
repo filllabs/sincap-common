@@ -1,4 +1,4 @@
-package dbutil
+package queryapi
 
 import (
 	"reflect"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"gitlab.com/sincap/sincap-common/db/util"
 	"gitlab.com/sincap/sincap-common/resources/query"
 )
 
@@ -29,7 +30,7 @@ type SampleM2M struct {
 }
 type Inner1 struct {
 	ID uint
-	PolymorphicModel
+	util.PolymorphicModel
 	Name      string `qapi:"q:%*;"`
 	Inner2FID uint
 	Inner2F   *Inner2

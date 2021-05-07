@@ -1,7 +1,9 @@
-package types
+package types_test
 
 import (
 	"testing"
+
+	"gitlab.com/sincap/sincap-common/types"
 )
 
 func TestToString(t *testing.T) {
@@ -33,7 +35,7 @@ func TestToString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ToString(tt.args.from)
+			got, err := types.ToString(tt.args.from)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ToString() error = %v, wantErr %v", err, tt.wantErr)
 				return

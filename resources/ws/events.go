@@ -1,12 +1,12 @@
+// Package ws provides necessary Connect, Disconnect functions and Writers
 package ws
 
 import (
 	"sync"
 
-	"gitlab.com/sincap/sincap-common/auth"
-
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/jwtauth"
+	"gitlab.com/sincap/sincap-common/auth/claims"
 	"go.uber.org/zap"
 	melody "gopkg.in/olahol/melody.v1"
 )
@@ -14,7 +14,7 @@ import (
 // NewEncryptedHandleConnect returns default implementation of connect handler for melody websockets. Decodes jwt with the given secret.
 func NewEncryptedHandleConnect(users *sync.Map, logger *zap.Logger, beforeResponse func(*melody.Session), secret string) func(*melody.Session) {
 	return func(s *melody.Session) {
-		if claims, err := auth.DecodeFromContext(s.Request.Context(), secret); err != nil {
+		if claims, err := claims.FromContext(s.Request.Context(), secret); err != nil {
 			logger.Warn("Can not read token from request context")
 		} else {
 			if claims.Username == "" {

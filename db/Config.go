@@ -1,22 +1,15 @@
-// Package dbconn gives utility methods for creating and using gorm connections
-package dbconn
+package db
 
 import (
-	"gitlab.com/sincap/sincap-common/dbconn/zapgorm"
+	"gitlab.com/sincap/sincap-common/db/zapgorm"
 	"gitlab.com/sincap/sincap-common/logging"
-
 	"go.uber.org/zap"
-	"gorm.io/gorm"
-
-	// for Driver support
 	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
-// DB connection for all DB operatins
-var db = map[string]*gorm.DB{}
-
-// DBConfig holds database configuration
-type DBConfig struct {
+// Config holds database configuration
+type Config struct {
 	Name        string   `json:"name"`
 	Dialog      string   `json:"dialog"`
 	Args        []string `json:"args"`
@@ -25,7 +18,7 @@ type DBConfig struct {
 }
 
 // Configure DB connection
-func Configure(dbConfs []DBConfig) {
+func Configure(dbConfs []Config) {
 
 	for i := range dbConfs {
 		conf := dbConfs[i]
@@ -47,32 +40,4 @@ func Configure(dbConfs []DBConfig) {
 		db[conf.Name] = DB
 		logging.Logger.Info("DB initialized", zap.String("name", conf.Name))
 	}
-}
-
-// GetDefault returns the DB connection named "default".
-func GetDefault() *gorm.DB {
-	return Get("default")
-}
-
-// Get returns the DB connection with the given name.
-func Get(name string) *gorm.DB {
-	conn, ok := db[name]
-	if !ok {
-		logging.Logger.Error("DB is nil. Returning default", zap.String("name", name))
-		conn, ok := db["default"]
-		if !ok {
-			logging.Logger.Fatal("DB Some fatal problems occured", zap.String("name", name))
-		}
-		return conn
-	}
-	return conn
-}
-
-// Close tries to close db connection returns if any error occures.
-func Close(db *gorm.DB) error {
-	sdb, err := db.DB()
-	if err == nil {
-		err = sdb.Close()
-	}
-	return err
 }

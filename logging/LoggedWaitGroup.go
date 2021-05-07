@@ -6,7 +6,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// LoggedWaitGroup is a wait group with loggging support
+// LoggedWaitGroup is a wait group with loggging.
 type LoggedWaitGroup struct {
 	sync.WaitGroup
 	Name  string

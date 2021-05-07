@@ -1,10 +1,11 @@
-package dbutil
+package crud
 
 import (
 	"reflect"
 	"strings"
 
-	"gitlab.com/sincap/sincap-common/dbconn"
+	"gitlab.com/sincap/sincap-common/db/queryapi"
+	"gitlab.com/sincap/sincap-common/db/util"
 	"gitlab.com/sincap/sincap-common/logging"
 	"gitlab.com/sincap/sincap-common/reflection"
 	"gitlab.com/sincap/sincap-common/resources/query"
@@ -27,6 +28,9 @@ func List(DB *gorm.DB, typ interface{}, query *query.Query, preloads ...string) 
 	if query == nil {
 		return ListAllSmartSelect(DB, typ, typ, preloads)
 	}
+	if len(query.Preloads) > 0 {
+		preloads = append(preloads, query.Preloads...)
+	}
 	return ListByQuery(DB, typ, typ, query, preloads)
 }
 
@@ -45,7 +49,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Qu
 
 	// Get count
 	var count int64 = -1
-	db := GenerateDB(query, DB, typ).Table(tableName)
+	db := queryapi.GenerateDB(query, DB, typ).Table(tableName)
 
 	eTyp := reflect.TypeOf(typ)
 	cDB := db
@@ -115,7 +119,7 @@ func Create(DB *gorm.DB, record interface{}) error {
 // Read Record
 func Read(DB *gorm.DB, record interface{}, id uint, preloads ...string) error {
 	if len(preloads) > 0 {
-		DB = addPreloads(reflection.Depointer(reflect.TypeOf(record)), DB, preloads)
+		DB = addPreloads(reflection.DepointerField(reflect.TypeOf(record)), DB, preloads)
 	}
 	result := DB.First(record, id)
 	if result.Error != nil {
@@ -151,11 +155,6 @@ func Delete(DB *gorm.DB, record interface{}) error {
 	return result.Error
 }
 
-// DB Returns default DB connection clone
-func DB() *gorm.DB {
-	return dbconn.GetDefault()
-}
-
 // Associations opens "save_associations" for the given DB
 func Associations(DB *gorm.DB) *gorm.DB {
 	return DB.Session(&gorm.Session{FullSaveAssociations: true})
@@ -177,14 +176,14 @@ func addPreloads(typ reflect.Type, db *gorm.DB, preloads []string) *gorm.DB {
 			db = db.Joins(field)
 			continue
 		}
-		rFt := reflection.Depointer(fType.Type)
+		rFt := reflection.DepointerField(fType.Type)
 		isSlice := rFt.Kind() == reflect.Slice
 
 		if isSlice {
 			db = db.Preload(field)
-		} else if _, isM2m := getMany2Many(&fType); isM2m { // many2many does not support joins.
+		} else if _, isM2m := util.GetMany2Many(&fType); isM2m { // many2many does not support joins.
 			db = db.Preload(field)
-		} else if _, isPoly := getPolymorphic(&fType); isPoly { // polymorphic does not support joins.
+		} else if _, isPoly := util.GetPolymorphic(&fType); isPoly { // polymorphic does not support joins.
 			db = db.Preload(field)
 		} else {
 			db = db.Joins(field)
@@ -193,67 +192,4 @@ func addPreloads(typ reflect.Type, db *gorm.DB, preloads []string) *gorm.DB {
 		// "JOIN emails ON emails.user_id = users.id AND emails.email = ?"
 	}
 	return db
-}
-
-// MultiCreate  creates multiple records consecutively. Stops on any error, returns the error.
-// Don't forget to start TX and rollback on any error if you need transactions support.
-func MultiCreate(DB *gorm.DB, records ...interface{}) error {
-	for _, record := range records {
-		if record == nil {
-			continue
-		}
-		err := Create(DB, record)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// MultiUpdate  updates multiple records consecutively. Stops on any error, returns the error.
-// Don't forget to start TX and rollback on any error if you need transactions support.
-func MultiUpdate(DB *gorm.DB, records ...interface{}) error {
-	for _, record := range records {
-		if record == nil {
-			continue
-		}
-		err := Update(DB, record)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// MultiDelete  deletes multiple records consecutively. Stops on any error, returns the error.
-// Don't forget to start TX and rollback on any error if you need transactions support.
-func MultiDelete(DB *gorm.DB, records ...interface{}) error {
-	for _, record := range records {
-		if isNil(record) {
-			continue
-		}
-		err := Delete(DB, record)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func isNil(record interface{}) bool {
-	if record == nil {
-		return true
-	}
-
-	var val = reflect.ValueOf(record)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-		if !val.IsValid() {
-			return true
-		}
-	}
-	if val.FieldByName("ID").Uint() == 0 {
-		return true
-	}
-	return false
 }
