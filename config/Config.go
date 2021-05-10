@@ -9,21 +9,20 @@ import (
 	"log"
 
 	"gitlab.com/sincap/sincap-common/db"
+	"gitlab.com/sincap/sincap-common/server"
+	"gitlab.com/sincap/sincap-common/server/fileserver"
 	"go.uber.org/zap"
 )
 
 // Config is the configuration of the application
 type Config struct {
-	Server      Server       `json:"server"`
-	FrontendURL string       `json:"frontendURL"`
-	BackendURL  string       `json:"backendURL"`
-	FileServer  []FileServer `json:"fileServer"`
-	DB          []db.Config  `json:"db"`
-	Auth        Auth         `json:"auth"`
-	Log         zap.Config   `json:"log"`
-	Metrics     Metrics      `json:"metrics"`
-	Mail        Mail         `json:"mail"`
-	Recaptcha   Recaptcha    `json:"recaptcha"`
+	Server     server.Config       `json:"server"`
+	FileServer []fileserver.Config `json:"fileServer"`
+	DB         []db.Config         `json:"db"`
+	Auth       Auth                `json:"auth"`
+	Log        zap.Config          `json:"log"`
+	Mail       Mail                `json:"mail"`
+	Recaptcha  Recaptcha           `json:"recaptcha"`
 }
 
 // Load loads the configuration file from the given path and fills the given config pointer
