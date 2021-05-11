@@ -43,6 +43,10 @@ func GetPolymorphic(f *reflect.StructField) (string, bool) {
 }
 
 func ConvertValue(filter query.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
+	if value == "NULL" || value == "null" || value == "nil" {
+		// Do not add anything
+		return values, nil
+	}
 	switch kind {
 	case reflect.String:
 		values = append(values, value)

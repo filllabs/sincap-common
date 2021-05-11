@@ -23,9 +23,17 @@ func getCondition(condition []string, field string, value interface{}, operation
 	condition = append(condition, field)
 	switch operation {
 	case query.EQ:
-		condition = append(condition, "=", "?")
+		if isNull(value) {
+			condition = append(condition, "IS", "NULL")
+		} else {
+			condition = append(condition, "=", "?")
+		}
 	case query.NEQ:
-		condition = append(condition, "<>", "?")
+		if isNull(value) {
+			condition = append(condition, "IS NOT", "NULL")
+		} else {
+			condition = append(condition, "<>", "?")
+		}
 	case query.GT:
 		condition = append(condition, ">", "?")
 	case query.GTE:
@@ -187,7 +195,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 			}
 
 		} else {
-			condition = getCondition(condition, typ.Name()+"."+filter.Name, filter.Value, filter.Operation)
+			condition = getCondition(condition, "`"+typ.Name()+"`"+"."+"`"+filter.Name+"`", filter.Value, filter.Operation)
 			field, isFieldFound := typ.FieldByName(filter.Name)
 			if !isFieldFound {
 				return "", values, fmt.Errorf("Can't find field for %s", filter.Name)
@@ -310,4 +318,8 @@ func getQapiQPrefix(f *reflect.StructField) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func isNull(value interface{}) bool {
+	return value == "NULL" || value == "null" || value == "nil"
 }

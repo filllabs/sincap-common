@@ -76,6 +76,7 @@ GET /cars?_offset=10&_limit=5
 	* `~=` like
 	* `|=` in (values must be separated with `|`
 	* `*=` in alternative (values must be separated with `*`
+* NULL/mull/nil id reserved word. For ex. Name=NULL or Name!=NULL becomes IS NULL or IS NOT NULL
 	
 ```GET http://127.0.0.1:8080/app/users?_filter=name=seray,active=true```
 
