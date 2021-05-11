@@ -46,7 +46,6 @@ func RequestMetrics() (func(next http.Handler) http.Handler, gometrics.Registry)
 	registry := metrics.NewRegistry()
 	return func(next http.Handler) http.Handler {
 		logging.Logger.Info("Metrics registered.", zap.String("source", "metrics.middleware"))
-		// go gometrics.WriteJSON(gometrics.DefaultRegistry, time.Second*time.Duration(interval), writer)
 
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			rctx := chi.RouteContext(r.Context())

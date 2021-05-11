@@ -20,7 +20,7 @@ func AddDefaultMiddlewares(r *chi.Mux, config Config) {
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
 	if config.Cors {
-		logging.Logger.Info("Adding CORS")
+		logging.Logger.Named("Server").Info("Adding CORS")
 		cors := cors.New(cors.Options{
 			AllowedOrigins:   []string{config.FrontendURL},
 			AllowedHeaders:   []string{"*"},
@@ -32,7 +32,7 @@ func AddDefaultMiddlewares(r *chi.Mux, config Config) {
 		r.Use(cors.Handler)
 	}
 	if config.SecurityHeaders {
-		logging.Logger.Info("Adding SecurityHeaders")
+		logging.Logger.Named("Server").Info("Adding SecurityHeaders")
 		r.Use(middlewares.SecurityHeaders)
 	}
 }
