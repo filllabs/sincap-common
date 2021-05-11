@@ -46,3 +46,18 @@ func Close(db *gorm.DB) error {
 	}
 	return err
 }
+
+// CloseAll tries to close all db connections
+func CloseAll() {
+	for name, con := range db {
+		sdb, err := con.DB()
+		if err != nil {
+			logging.Logger.Named("DB").Error("Can't get sql DB connection", zap.String("name", name), zap.Error(err))
+		}
+		err = sdb.Close()
+		if err != nil {
+			logging.Logger.Named("DB").Error("Can't close DB connection", zap.String("name", name), zap.Error(err))
+		}
+	}
+	logging.Logger.Named("DB").Info("connections closed")
+}

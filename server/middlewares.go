@@ -11,7 +11,6 @@ import (
 )
 
 // AddDefaultMiddlewares adds all predefined middlewares to the router.
-// You may add GracefulStop manually by adding 	r.Use(GracefulStop(&closer.QuitWG))
 // You may add RequestMetrics manually by adding 	AddRequestMetrics(r)
 func AddDefaultMiddlewares(r *chi.Mux, config Config) {
 	r.Use(middleware.RequestID)
