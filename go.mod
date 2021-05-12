@@ -3,6 +3,7 @@ module gitlab.com/sincap/sincap-common
 go 1.16
 
 require (
+	github.com/clbanning/mxj/v2 v2.5.5
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/fatih/structs v1.1.0
 	github.com/go-chi/chi v4.0.2+incompatible
