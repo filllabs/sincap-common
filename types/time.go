@@ -1,6 +1,7 @@
 package types
 
 import (
+	"strconv"
 	"time"
 )
 
@@ -32,4 +33,15 @@ func DateEqual(date1, date2 time.Time) bool {
 	y1, m1, d1 := date1.Date()
 	y2, m2, d2 := date2.Date()
 	return y1 == y2 && m1 == m2 && d1 == d2
+}
+
+//  ParseUnix parses the Millisecond given and returns unix Time. (momentjs gives ms as string)
+func ParseUnix(msString string) (time.Time, error) {
+	i, err := strconv.ParseInt(msString, 10, 64)
+	return time.Unix(0, i*1000000), err
+}
+
+// DaysInMonth returns the count of days in a month
+func DaysInMonth(m time.Month, year int) int {
+	return time.Date(year, m+1, 0, 0, 0, 0, 0, time.UTC).Day()
 }

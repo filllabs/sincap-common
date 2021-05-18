@@ -1,4 +1,4 @@
-package imageutils
+package images
 
 import (
 	"mime/multipart"
