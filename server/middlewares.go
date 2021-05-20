@@ -12,7 +12,7 @@ import (
 
 // AddDefaultMiddlewares adds all predefined middlewares to the router.
 // You may add RequestMetrics manually by adding 	AddRequestMetrics(r)
-func AddDefaultMiddlewares(r *chi.Mux, config Config) {
+func AddDefaultMiddlewares(r chi.Router, config Config) {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
