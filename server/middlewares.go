@@ -19,18 +19,20 @@ func AddDefaultMiddlewares(r chi.Router, config Config) {
 	r.Use(middleware.StripSlashes)
 	r.Use(render.SetContentType(render.ContentTypeJSON))
 
+	allowedURL := "*"
 	if config.Cors {
 		logging.Logger.Named("Server").Info("Adding CORS")
-		cors := cors.New(cors.Options{
-			AllowedOrigins:   []string{config.FrontendURL},
-			AllowedHeaders:   []string{"*"},
-			AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-			ExposedHeaders:   []string{"Link", "X-Total-Count"},
-			AllowCredentials: true,
-			MaxAge:           300,
-		})
-		r.Use(cors.Handler)
+		allowedURL = config.FrontendURL
 	}
+	cors := cors.New(cors.Options{
+		AllowedOrigins:   []string{allowedURL},
+		AllowedHeaders:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		ExposedHeaders:   []string{"Link", "X-Total-Count"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	})
+	r.Use(cors.Handler)
 	if config.SecurityHeaders {
 		logging.Logger.Named("Server").Info("Adding SecurityHeaders")
 		r.Use(middlewares.SecurityHeaders)
