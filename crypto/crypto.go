@@ -1,3 +1,4 @@
+// Package crypto holds necessary functions for every day cryptic operations
 package crypto
 
 import (

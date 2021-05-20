@@ -1,4 +1,4 @@
-// Package flags  helps to parse flags.
+// Package flags helps to parse flags.
 package flags
 
 import (

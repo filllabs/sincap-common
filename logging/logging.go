@@ -1,3 +1,5 @@
+// Package logging provides a single instance logger for both normal and sugar.
+// All packages must call logger from the package in order to use initially configured logger instance.
 package logging
 
 import (

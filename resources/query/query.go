@@ -6,19 +6,21 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"gitlab.com/sincap/sincap-common/resources"
-	"gitlab.com/sincap/sincap-common/types"
 	"strconv"
 	"strings"
+
+	"gitlab.com/sincap/sincap-common/resources/contexts"
+	"gitlab.com/sincap/sincap-common/types"
 )
 
 // QueryContextKey is the key to access query object
-var QueryContextKey = resources.NewContextKey()
+var QueryContextKey = contexts.NewContextKey()
 
 // Query holds parsed query params for the query
 type Query struct {
 	Q          string
 	Fields     []string
+	Preloads   []string
 	Offset     int
 	Limit      int
 	Sort       []string
@@ -42,6 +44,13 @@ func (query *Query) Parse(r *http.Request) error {
 		isEmpty = false
 	} else {
 		query.Fields = make([]string, 0)
+	}
+	if preloadParams := qParams.Get("_preloads"); len(preloadParams) != 0 {
+		preloads := strings.Split(preloadParams, ",")
+		query.Preloads = preloads
+		isEmpty = false
+	} else {
+		query.Preloads = make([]string, 0)
 	}
 
 	if offsetParam := qParams.Get("_offset"); len(offsetParam) != 0 {

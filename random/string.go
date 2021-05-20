@@ -1,4 +1,3 @@
-// Package random  holds all necessary random generators.
 package random
 
 import (
@@ -15,10 +14,29 @@ const (
 
 var src = rand.NewSource(time.Now().UnixNano())
 
-// GetString generates a random string
+// GetString generates a random string with the length of 32
 func GetString() string {
 	n := 32
 
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return string(b)
+}
+
+// GetStringN generates a random string with the given length
+func GetStringN(n int) string {
 	b := make([]byte, n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
 	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {

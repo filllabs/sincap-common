@@ -1,7 +1,9 @@
-package types
+package types_test
 
 import (
 	"testing"
+
+	"gitlab.com/sincap/sincap-common/types"
 )
 
 func TestParseUint(t *testing.T) {
@@ -19,7 +21,7 @@ func TestParseUint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseUint(tt.args.val)
+			got, err := types.ParseUint(tt.args.val)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseUint() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -44,7 +46,7 @@ func TestFormatUint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := FormatUint(tt.args.val); got != tt.want {
+			if got := types.FormatUint(tt.args.val); got != tt.want {
 				t.Errorf("FormatUint() = %v, want %v", got, tt.want)
 			}
 		})

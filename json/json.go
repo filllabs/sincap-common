@@ -1,6 +1,8 @@
+// Package json provides utility methods for centralising json rendering in order to make changes later easier for performance reasons.
 package json
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -26,4 +28,30 @@ func Render(w http.ResponseWriter, r *http.Request, v interface{}) {
 		w.WriteHeader(status)
 	}
 	w.Write(buf)
+}
+
+// ToMap decodes json byte stream to a map with int support
+func ToMap(in *[]byte) (map[string]interface{}, error) {
+	var parsed map[string]interface{}
+	decoder := json.NewDecoder(bytes.NewReader(*in))
+	decoder.UseNumber()
+	err := decoder.Decode(&parsed)
+	if err != nil {
+		return parsed, err
+	}
+	for key, val := range parsed {
+		n, ok := val.(json.Number)
+		if !ok {
+			continue
+		}
+		if i, err := n.Int64(); err == nil {
+			parsed[key] = i
+			continue
+		}
+		if f, err := n.Float64(); err == nil {
+			parsed[key] = f
+			continue
+		}
+	}
+	return parsed, nil
 }

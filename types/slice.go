@@ -2,14 +2,16 @@ package types
 
 import (
 	"reflect"
+
+	"gitlab.com/sincap/sincap-common/reflection"
 )
 
 // SliceContains checks if a slice contains an element
 func SliceContains(s interface{}, e interface{}) bool {
 	slice := convertSliceToInterface(s)
-	e = PtrGetElem(e)
+	e = reflection.DepointerInteface(e)
 	for _, a := range slice {
-		a = PtrGetElem(a)
+		a = reflection.DepointerInteface(a)
 		if a == e {
 			return true
 		}
@@ -17,12 +19,12 @@ func SliceContains(s interface{}, e interface{}) bool {
 	return false
 }
 
-// SliceContainsReflect checks if a slice contains an element with reflection
-func SliceContainsReflect(s interface{}, e interface{}) bool {
+// SliceContainsDeep checks if a slice contains an element with reflection
+func SliceContainsDeep(s interface{}, e interface{}) bool {
 	slice := convertSliceToInterface(s)
-	e = PtrGetElem(e)
+	e = reflection.DepointerInteface(e)
 	for _, a := range slice {
-		a = PtrGetElem(a)
+		a = reflection.DepointerInteface(a)
 		if reflect.DeepEqual(a, e) {
 			return true
 		}
@@ -33,7 +35,7 @@ func SliceContainsReflect(s interface{}, e interface{}) bool {
 // convertSliceToInterface takes a slice passed in as an interface{}
 // then converts the slice to a slice of interfaces
 func convertSliceToInterface(s interface{}) (slice []interface{}) {
-	s = PtrGetElem(s)
+	s = reflection.DepointerInteface(s)
 	v := reflect.ValueOf(s)
 	if v.Kind() != reflect.Slice {
 		return nil
