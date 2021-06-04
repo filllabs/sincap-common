@@ -37,6 +37,29 @@ func PathParamID(key ContextKey, i interface{}) func(next http.Handler) http.Han
 	}
 }
 
+// PathParamIDUnscoped is a ready to use context for reading "id" path param with Unscoped support.
+// Reads the parameter and receives from the database to put in to the context with the given key
+func PathParamIDUnscoped(key ContextKey, i interface{}) func(next http.Handler) http.Handler {
+	t := reflect.TypeOf(i)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			idParam := chi.URLParam(r, "id")
+			id, err := types.ParseUint(idParam)
+			if err != nil {
+				responses.Status404(w, r)
+				return
+			}
+			record := reflect.New(t).Interface()
+			if err := read(db.DB().Unscoped(), record, id); err != nil {
+				responses.Status404(w, r)
+				return
+			}
+			ctx := context.WithValue(r.Context(), key, record)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
 func read(DB *gorm.DB, record interface{}, id uint, preloads ...string) error {
 	result := DB.First(record, id)
 	if result.Error != nil {
