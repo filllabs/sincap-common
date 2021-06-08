@@ -1,9 +1,13 @@
 package temp
 
 import (
+	"bufio"
+	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"gitlab.com/sincap/sincap-common/logging"
 	"go.uber.org/zap"
@@ -29,13 +33,37 @@ func Write(content *[]byte, prefix string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if _, err := o.Write(*content); err != nil {
 		return nil, err
 	}
 	if err := o.Close(); err != nil {
 		return nil, err
 	}
-	logging.Logger.Debug("Temp File written", zap.String("name", o.Name()))
 	return o, nil
+}
+
+// Read reads the given named file from the temp directory.
+func Read(fileName string) (string, *[]byte, error) {
+	content, err := ioutil.ReadFile(Folder + "/" + fileName)
+	if err != nil {
+		return "", nil, err
+	}
+	path := strings.Split(fileName, "-")
+	return path[0], &content, nil
+}
+
+// NewReader returns reader for the given named file from the temp directory.
+func NewReader(fileName string) (string, io.Reader, error) {
+	file, err := os.Open(path.Join(Folder, fileName))
+	if err != nil {
+		return "", nil, err
+	}
+	path := strings.Split(fileName, "-")
+	return path[0], bufio.NewReader(file), nil
+}
+
+// Delete deletes the given named file from the temp directory.
+func Delete(fileName string) error {
+	err := os.Remove(path.Join(Folder, fileName))
+	return err
 }
