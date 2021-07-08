@@ -24,5 +24,6 @@ require (
 	gopkg.in/olahol/melody.v1 v1.0.0-20170518105555-d52139073376
 	gorm.io/driver/mysql v1.0.5
 	gorm.io/gorm v1.21.8
+	github.com/selvatico/go-mocket v1.0.7
 
 )
