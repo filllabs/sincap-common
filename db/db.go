@@ -4,11 +4,7 @@
 package db
 
 import (
-	mocket "github.com/selvatico/go-mocket"
 	"gitlab.com/sincap/sincap-common/logging"
-	"gorm.io/driver/mysql"
-	"testing"
-
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	// for Driver support
@@ -25,26 +21,6 @@ func DB() *gorm.DB {
 // GetDefault returns the DB connection named "default".
 func GetDefault() *gorm.DB {
 	return Get("default")
-}
-
-func SetupMockDBForTest(t *testing.T) *gorm.DB {
-	var err error
-	mocket.Catcher.Reset()
-	mocket.Catcher.Register()
-	mocket.Catcher.Logging = true
-
-	dialect := mysql.New(mysql.Config{
-		DSN:                       "mockdb",
-		DriverName:                mocket.DriverName,
-		SkipInitializeWithVersion: true,
-	})
-
-	mockDB, err := gorm.Open(dialect, new(gorm.Config))
-	if err != nil {
-		t.Fatalf("failed to open mock database connection: %s", err)
-	}
-	db["default"] = mockDB
-	return mockDB
 }
 
 // Get returns the DB connection with the given name.

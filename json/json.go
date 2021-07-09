@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/render"
 )
@@ -54,4 +55,10 @@ func ToMap(in *[]byte) (map[string]interface{}, error) {
 		}
 	}
 	return parsed, nil
+}
+
+// PayloadMarshaller converts given interface request to payload for http request helpers.
+func PayloadMarshaller(req interface{}) *strings.Reader {
+	out, _ := json.Marshal(req)
+	return strings.NewReader(string(out))
 }
