@@ -37,6 +37,8 @@ func ToString(from interface{}) (string, error) {
 			return "true", nil
 		}
 		return "false", nil
+	case nil:
+		return "", nil
 	default:
 		return fmt.Sprintf("%v", from), nil
 	}
