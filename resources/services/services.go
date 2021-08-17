@@ -33,6 +33,23 @@ func NewCRUDRouter(res resources.Resource, typ interface{}) func(r chi.Router) {
 	}
 }
 
+// NewCRPUDRouter creates a predefined router for simple crud scenario with partial update
+func NewCRPUDRouter(res resources.Resource, typ interface{}, table string) func(r chi.Router) {
+	return func(r chi.Router) {
+		pathParamCtx := contexts.PathParamID(res.PathParamCxtKey, typ)
+		bodyCtx := validator.Context(res.BodyCtxKey, typ)
+
+		r.With(query.Context).Get("/", NewList(typ))
+		r.With(bodyCtx).Post("/", NewCreate(typ, res.BodyCtxKey))
+		r.Route("/{id}", func(r chi.Router) {
+			r.Use(pathParamCtx)
+			r.Get("/", NewRead(typ, res.PathParamCxtKey))
+			r.With(bodyCtx).Patch("/", NewUpdatePartial(table))
+			r.Delete("/", NewDelete(typ, res.PathParamCxtKey))
+		})
+	}
+}
+
 // NewList creates a new list function.
 func NewList(in interface{}, preloads ...string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
