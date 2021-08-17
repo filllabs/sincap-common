@@ -44,7 +44,7 @@ func NewCRPUDRouter(res resources.Resource, typ interface{}, table string) func(
 		r.Route("/{id}", func(r chi.Router) {
 			r.Use(pathParamCtx)
 			r.Get("/", NewRead(typ, res.PathParamCxtKey))
-			r.With(bodyCtx).Patch("/", NewUpdatePartial(table))
+			r.Patch("/", NewUpdatePartial(table))
 			r.Delete("/", NewDelete(typ, res.PathParamCxtKey))
 		})
 	}
