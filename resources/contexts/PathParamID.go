@@ -16,11 +16,15 @@ import (
 
 // PathParamID is a ready to use context for reading "id" path param.
 // Reads the parameter and receives from the database to put in to the context with the given key
-func PathParamID(key ContextKey, i interface{}) func(next http.Handler) http.Handler {
+func PathParamID(key ContextKey, i interface{},paramKey ...string) func(next http.Handler) http.Handler {
 	t := reflect.TypeOf(i)
+	idParamKey := "id"
+	if len(paramKey) == 1 {
+		idParamKey = paramKey[0]
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			idParam := chi.URLParam(r, "id")
+			idParam := chi.URLParam(r, idParamKey)
 			id, err := types.ParseUint(idParam)
 			if err != nil {
 				responses.Status404(w, r)
@@ -39,11 +43,15 @@ func PathParamID(key ContextKey, i interface{}) func(next http.Handler) http.Han
 
 // PathParamIDUnscoped is a ready to use context for reading "id" path param with Unscoped support.
 // Reads the parameter and receives from the database to put in to the context with the given key
-func PathParamIDUnscoped(key ContextKey, i interface{}) func(next http.Handler) http.Handler {
+func PathParamIDUnscoped(key ContextKey, i interface{},paramKey ...string) func(next http.Handler) http.Handler {
 	t := reflect.TypeOf(i)
+	idParamKey := "id"
+	if len(paramKey) == 1 {
+		idParamKey = paramKey[0]
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			idParam := chi.URLParam(r, "id")
+			idParam := chi.URLParam(r, idParamKey)
 			id, err := types.ParseUint(idParam)
 			if err != nil {
 				responses.Status404(w, r)
