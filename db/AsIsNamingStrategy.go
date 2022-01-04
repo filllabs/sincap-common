@@ -52,3 +52,6 @@ func (n *asIsNamer) IndexName(table, column string) string {
 	}
 	return idxName
 }
+func (n *asIsNamer) SchemaName(table string) string {
+	return strings.Split(".", table)[0]
+}

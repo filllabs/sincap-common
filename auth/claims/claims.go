@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"strings"
 
-	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/jwtauth"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 // FromContext decodes the given jwt from the context and returns a decrypted version of the claims
 func FromContext(context context.Context, secret string) (*DecryptedClaims, error) {
-	token, eclaims, err := readEncrypted(context)
+	token, _ := context.Value(jwtauth.TokenCtxKey).(*jwt.Token)
+	eclaims, err := readEncrypted(token)
 	if err != nil {
 		return nil, fmt.Errorf("token error read token. %v", err)
 	}
@@ -25,15 +26,25 @@ func FromContext(context context.Context, secret string) (*DecryptedClaims, erro
 	return eclaims.Decrypt(secret)
 }
 
-func readEncrypted(ctx context.Context) (*jwt.Token, *EncryptedClaims, error) {
-	token, _ := ctx.Value(jwtauth.TokenCtxKey).(*jwt.Token)
+// FromContext decodes the given jwt from the context and returns a decrypted version of the claims
+func FromToken(token *jwt.Token, secret string) (*DecryptedClaims, error) {
+	eclaims, err := readEncrypted(token)
+	if err != nil {
+		return nil, fmt.Errorf("token error read token. %v", err)
+	}
+	if token == nil || !token.Valid {
+		return nil, errors.New("token error token not valid")
+	}
+	return eclaims.Decrypt(secret)
+}
 
+func readEncrypted(token *jwt.Token) (*EncryptedClaims, error) {
 	var claims jwt.MapClaims
 	if token != nil {
 		if tokenClaims, ok := token.Claims.(jwt.MapClaims); ok {
 			claims = tokenClaims
 		} else {
-			return nil, nil, fmt.Errorf("jwtauth: unknown type of Claims: %+v", token.Claims)
+			return nil, fmt.Errorf("jwtauth: unknown type of Claims: %+v", token.Claims)
 		}
 	} else {
 		claims = jwt.MapClaims{}
@@ -41,9 +52,7 @@ func readEncrypted(ctx context.Context) (*jwt.Token, *EncryptedClaims, error) {
 	eclaims := EncryptedClaims{}
 	eclaims.Fill(claims)
 
-	err, _ := ctx.Value(jwtauth.ErrorCtxKey).(error)
-
-	return token, &eclaims, err
+	return &eclaims, nil
 }
 
 func readUserIP(r *http.Request) string {

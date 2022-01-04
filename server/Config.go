@@ -1,6 +1,10 @@
 package server
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/gofiber/fiber/v2"
+)
 
 // Config holds server configuration
 type Config struct {
@@ -10,6 +14,7 @@ type Config struct {
 	SecurityHeaders bool   `json:"securityHeaders"`
 	FrontendURL     string `json:"frontendURL"`
 	BackendURL      string `json:"backendURL"`
+	fiber.Config
 }
 
 // GetHost returns the combination of the domain, port and more

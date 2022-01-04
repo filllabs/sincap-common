@@ -1,13 +1,16 @@
 package db
 
 import (
+	"testing"
+
 	mocket "github.com/selvatico/go-mocket"
 	"gitlab.com/sincap/sincap-common/db/zapgorm"
 	"gitlab.com/sincap/sincap-common/logging"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"testing"
+	"gorm.io/gorm/schema"
 )
 
 // Config holds database configuration
@@ -62,4 +65,21 @@ func ConfigureTestDB(t *testing.T) (*gorm.DB, *mocket.MockCatcher) {
 	}
 	db["default"] = mockDB
 	return mockDB, mocket.Catcher
+}
+
+// ConfigureTestDB returns new mock db connection for test and override db instance with mock db connection.
+func ConfigureMockDB(name string) *gorm.DB {
+	mockDB, err := gorm.Open(sqlite.Open("file:"+name+"?mode=memory&cache=shared"),
+		&gorm.Config{
+			NamingStrategy: schema.NamingStrategy{
+				SingularTable: true,
+			},
+		},
+	)
+	if err != nil {
+		logging.Logger.Fatal("Cant create  mock sqlite db", zap.Error(err))
+	}
+
+	db["default"] = mockDB
+	return mockDB
 }

@@ -14,15 +14,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// Config is the configuration of the application
 type Config struct {
-	Server     server.Config       `json:"server"`
-	FileServer []fileserver.Config `json:"fileServer"`
-	DB         []db.Config         `json:"db"`
-	Auth       Auth                `json:"auth"`
-	Log        zap.Config          `json:"log"`
-	Mail       Mail                `json:"mail"`
-	Recaptcha  Recaptcha           `json:"recaptcha"`
+	Server server.Server `json:"server,omitempty"`
+	Auth   Auth          `json:"auth"`
+
+	FileServer []fileserver.Config `json:"fileServer,omitempty"`
+	DB         []db.Config         `json:"db,omitempty"`
+	Log        zap.Config          `json:"log,omitempty"`
+	Mail       Mail                `json:"mail,omitempty"`
+	//TODO: Recaptcha  config.Recaptcha    `json:"recaptcha,omitempty"`
 }
 
 // Load loads the configuration file from the given path and fills the given config pointer

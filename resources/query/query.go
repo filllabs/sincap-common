@@ -3,12 +3,12 @@
 package query
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	"gitlab.com/sincap/sincap-common/resources/contexts"
 	"gitlab.com/sincap/sincap-common/types"
 )
@@ -29,23 +29,22 @@ type Query struct {
 }
 
 // Parse parses request query params and fills inside
-func (query *Query) Parse(r *http.Request) error {
+func (query *Query) Parse(qParams map[string]string) error {
 	isEmpty := true
-	qParams := r.URL.Query()
 
-	if q := qParams.Get("_q"); len(q) != 0 {
+	if q := qParams["_q"]; len(q) != 0 {
 		query.Q = q
 		isEmpty = false
 	}
 
-	if fieldParams := qParams.Get("_fields"); len(fieldParams) != 0 {
+	if fieldParams := qParams["_fields"]; len(fieldParams) != 0 {
 		fields := strings.Split(fieldParams, ",")
 		query.Fields = fields
 		isEmpty = false
 	} else {
 		query.Fields = make([]string, 0)
 	}
-	if preloadParams := qParams.Get("_preloads"); len(preloadParams) != 0 {
+	if preloadParams := qParams["_preloads"]; len(preloadParams) != 0 {
 		preloads := strings.Split(preloadParams, ",")
 		query.Preloads = preloads
 		isEmpty = false
@@ -53,7 +52,7 @@ func (query *Query) Parse(r *http.Request) error {
 		query.Preloads = make([]string, 0)
 	}
 
-	if offsetParam := qParams.Get("_offset"); len(offsetParam) != 0 {
+	if offsetParam := qParams["_offset"]; len(offsetParam) != 0 {
 		offset, errOffset := strconv.Atoi(offsetParam)
 		if errOffset == nil {
 			isEmpty = false
@@ -65,8 +64,8 @@ func (query *Query) Parse(r *http.Request) error {
 		query.Offset = -1
 	}
 
-	if limitParam := qParams.Get("_limit"); len(limitParam) != 0 {
-		limit, errLimit := strconv.Atoi(r.URL.Query().Get("_limit"))
+	if limitParam := qParams["_limit"]; len(limitParam) != 0 {
+		limit, errLimit := strconv.Atoi(qParams["_limit"])
 		if errLimit == nil {
 			isEmpty = false
 			query.Limit = limit
@@ -77,7 +76,7 @@ func (query *Query) Parse(r *http.Request) error {
 		query.Limit = -1
 	}
 
-	if sortParam := qParams.Get("_sort"); len(sortParam) != 0 {
+	if sortParam := qParams["_sort"]; len(sortParam) != 0 {
 		isEmpty = false
 		sorts := strings.Split(sortParam, ",")
 		query.Sort = make([]string, len(sorts))
@@ -89,7 +88,7 @@ func (query *Query) Parse(r *http.Request) error {
 	} else {
 		query.Sort = make([]string, 0)
 	}
-	if filterParam := qParams.Get("_filter"); len(filterParam) != 0 {
+	if filterParam := qParams["_filter"]; len(filterParam) != 0 {
 		isEmpty = false
 		filters := strings.Split(filterParam, ",")
 		query.Filter = make([]Filter, len(filters))
@@ -108,17 +107,24 @@ func (query *Query) Parse(r *http.Request) error {
 }
 
 // Context parses the query params for the query
-func Context(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// Context parses the query params for the query
+func Context(contextKey string) func(ctx *fiber.Ctx) error {
+	return func(ctx *fiber.Ctx) error {
 		query := Query{}
-		if err := query.Parse(r); err == nil {
-			ctx := context.WithValue(r.Context(), QueryContextKey, &query)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		} else {
-			next.ServeHTTP(w, r)
-		}
+		params := map[string]string{}
+		params["_q"] = ctx.Query("_q", "")
+		params["_fields"] = ctx.Query("_fields", "")
+		params["_preloads"] = ctx.Query("_preloads", "")
+		params["_offset"] = ctx.Query("_offset", "")
+		params["_limit"] = ctx.Query("_limit", "")
+		params["_sort"] = ctx.Query("_sort", "")
+		params["_filter"] = ctx.Query("_filter", "")
 
-	})
+		if err := query.Parse(params); err == nil {
+			ctx.Locals("queryapi", &query)
+		}
+		return ctx.Next()
+	}
 }
 
 // ContextWithOwnerID and adds OwnerID filter
