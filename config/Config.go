@@ -15,7 +15,7 @@ import (
 )
 
 type Config struct {
-	Server server.Server `json:"server,omitempty"`
+	Server server.Config `json:"server,omitempty"`
 	Auth   Auth          `json:"auth"`
 
 	FileServer []fileserver.Config `json:"fileServer,omitempty"`
