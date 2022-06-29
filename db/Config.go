@@ -15,11 +15,11 @@ import (
 
 // Config holds database configuration
 type Config struct {
-	Name        string   `json:"name"`
-	Dialog      string   `json:"dialog"`
-	Args        []string `json:"args"`
-	LogMode     bool     `json:"logMode"`
-	AutoMigrate []string `json:"autoMigrate"`
+	Name        string   `json:"name" yaml:"name"`
+	Dialog      string   `json:"dialog" yaml:"dialog"`
+	Args        []string `json:"args" yaml:"args"`
+	LogMode     bool     `json:"logMode" yaml:"logMode"`
+	AutoMigrate []string `json:"autoMigrate" yaml:"autoMigrate"`
 }
 
 // Configure DB connection

@@ -11,14 +11,14 @@ import (
 
 // Config holds server configuration
 type Config struct {
-	Domain          string          `json:"domain"`
-	Port            int64           `json:"port"`
-	FrontendURL     string          `json:"frontendURL"`
-	BackendURL      string          `json:"backendURL"`
-	SecurityHeaders bool            `json:"securityHeaders"`
-	Etag            *etag.Config    `json:"etag,omitempty"`
-	Cors            *cors.Config    `json:"cors,omitempty"`
-	Limiter         *limiter.Config `json:"limiter,omitempty"`
+	Domain          string          `json:"domain" yaml:"domain"`
+	Port            int64           `json:"port" yaml:"port"`
+	FrontendURL     string          `json:"frontendURL" yaml:"frontendURL"`
+	BackendURL      string          `json:"backendURL" yaml:"backendURL"`
+	SecurityHeaders bool            `json:"securityHeaders" yaml:"securityHeaders"`
+	Etag            *etag.Config    `json:"etag,omitempty" yaml:"etag,omitempty"`
+	Cors            *cors.Config    `json:"cors,omitempty" yaml:"cors,omitempty"`
+	Limiter         *limiter.Config `json:"limiter,omitempty" yaml:"limiter,omitempty"`
 	fiber.Config
 }
 
