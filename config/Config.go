@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/yosuke-furukawa/json5/encoding/json5"
@@ -37,12 +38,23 @@ func Load(path string, config interface{}) error {
 			return fmt.Errorf("Config: Can't read configuration file from %v", err)
 		}
 	}
+	// check for the file extension
 	if strings.HasSuffix(path, ".json") || strings.HasSuffix(path, ".json5") {
 		err = json5.Unmarshal(data, config)
 	} else if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
 		err = yaml.Unmarshal(data, config)
 	} else {
-		return fmt.Errorf("Config: Unknown file extension for %s", path)
+		// if none provided check env variable
+		env := os.Getenv(path)
+		if env == "" {
+			return fmt.Errorf("Config: Can't read configuration file from %s", path)
+		}
+		if err = json5.Unmarshal(data, config); err != nil {
+			if err = yaml.Unmarshal(data, config); err != nil {
+				log.Panicf("Config: Can't read configuration file from %s", path)
+				return err
+			}
+		}
 	}
 	log.Println("Config:", "Loaded ", path)
 	return err
