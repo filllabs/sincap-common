@@ -14,6 +14,6 @@ func Validator(key string) func(ctx *fiber.Ctx) error {
 		if err := validator.Validate.Struct(r); err != nil {
 			return ctx.Status(422).JSON(map[string]string{"error": err.Error()})
 		}
-		return nil
+		return ctx.Next()
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/yosuke-furukawa/json5/encoding/json5"
+	"gitlab.com/sincap/sincap-common/auth"
 	"gitlab.com/sincap/sincap-common/db"
 	"gitlab.com/sincap/sincap-common/server"
 	"gitlab.com/sincap/sincap-common/server/fileserver"
@@ -19,10 +20,10 @@ import (
 
 type Config struct {
 	Server server.Config `json:"server,omitempty" yaml:"server,omitempty" `
-	Auth   Auth          `json:"auth" yaml:"auth"`
+	Auth   auth.Config   `json:"auth" yaml:"auth"`
 
 	FileServer []fileserver.Config `json:"fileServer,omitempty" yaml:"fileServer,omitempty"`
-	DB         []db.Config         `json:"db,omitempty" 	yaml:"db,omitempty"`
+	DB         []db.Config         `json:"db,omitempty" yaml:"db,omitempty"`
 	Log        zap.Config          `json:"log,omitempty" yaml:"log,omitempty"`
 	Mail       Mail                `json:"mail,omitempty" yaml:"mail,omitempty"`
 }

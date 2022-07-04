@@ -112,7 +112,7 @@ func TestParseUnix(t *testing.T) {
 		want    time.Time
 		wantErr bool
 	}{
-		{name: "", args: args{msString: strconv.FormatInt(now.UnixNano()/1000000, 64)}, want: now},
+		{name: "", args: args{msString: strconv.FormatInt(now.UnixNano()/1000000, 10)}, want: now},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

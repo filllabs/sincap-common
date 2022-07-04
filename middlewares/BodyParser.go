@@ -10,6 +10,6 @@ func BodyParser[T any](key string) func(ctx *fiber.Ctx) error {
 			return err
 		}
 		ctx.Locals(key, t)
-		return nil
+		return ctx.Next()
 	}
 }
