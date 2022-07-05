@@ -2,8 +2,6 @@ package claims
 
 import (
 	"encoding/json"
-	"fmt"
-	"net/http"
 
 	"gitlab.com/sincap/sincap-common/crypto"
 
@@ -52,17 +50,6 @@ func (c *DecryptedClaims) Encrypt(secret string) (*EncryptedClaims, error) {
 		Data:      data,
 	}
 	return &encoded, nil
-}
-
-// ValidateWithRequest validates the request information with the info inside of the claims
-func (c *DecryptedClaims) ValidateWithRequest(r http.Request) error {
-	if ip := readUserIP(&r); ip != c.UserIP {
-		return fmt.Errorf("token error, ip info is not equal. User ip : %v  Claims ip : %v", ip, c.UserIP)
-	}
-	if r.Header.Get("User-Agent") != c.UserAgent {
-		return fmt.Errorf("token error, user agents info is not equal. User user-agent : %v  Claims user-agent : %v", r.Header.Get("User-Agent"), c.UserAgent)
-	}
-	return nil
 }
 
 // GetExtra  retuns the extra element with the given key
