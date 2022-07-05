@@ -84,3 +84,25 @@ func RenewTokenIfNeeded(dclaims *claims.DecryptedClaims, ctx *fiber.Ctx, config 
 	}
 	return nil
 }
+
+func InvalidateCookies(ctx *fiber.Ctx, config Config) {
+	jwt := fiber.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   int(config.Timeout),
+		HTTPOnly: config.HTTPOnly,
+		Secure:   config.Secure,
+		SameSite: fiber.CookieSameSiteLaxMode,
+	}
+	ctx.Cookie(&jwt)
+
+	loggedin := fiber.Cookie{
+		Name:     "loggedin",
+		Value:    "false",
+		Path:     "/",
+		MaxAge:   int(config.Timeout),
+		SameSite: fiber.CookieSameSiteLaxMode,
+	}
+	ctx.Cookie(&loggedin)
+}
