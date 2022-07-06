@@ -11,7 +11,7 @@ type Service[E any] interface {
 	List(ctx context.Context, query *query.Query, preloads ...string) (interface{}, int, error)
 	Create(ctx context.Context, data *E) error
 	Read(ctx context.Context, id uint) (*E, error)
-	Update(ctx context.Context, id uint, data map[string]interface{}) error
+	Update(ctx context.Context, table string, id uint, data map[string]interface{}) error
 	Delete(ctx context.Context, id uint) (*E, error)
 }
 
@@ -39,8 +39,8 @@ func (ser *CrudService[E]) Read(ctx context.Context, uid uint) (*E, error) {
 	}
 	return e, nil
 }
-func (ser *CrudService[E]) Update(ctx context.Context, uid uint, data map[string]interface{}) error {
-	if err := ser.Repository.UpdatePartial("User", uid, data); err != nil {
+func (ser *CrudService[E]) Update(ctx context.Context, table string, uid uint, data map[string]interface{}) error {
+	if err := ser.Repository.UpdatePartial(table, uid, data); err != nil {
 		return ConvertErr(err)
 	}
 	return nil
