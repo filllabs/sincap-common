@@ -12,44 +12,44 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
+	"gitlab.com/sincap/sincap-common/middlewares/qapi"
 	"gitlab.com/sincap/sincap-common/reflection"
-	"gitlab.com/sincap/sincap-common/resources/query"
 )
 
 var timeKind = reflect.TypeOf(time.Time{}).Kind()
 var jsonType = reflect.TypeOf(types.JSON{})
 
-func getCondition(condition []string, field string, value interface{}, operation query.Operation) []string {
+func getCondition(condition []string, field string, value interface{}, operation qapi.Operation) []string {
 	condition = append(condition, field)
 	switch operation {
-	case query.EQ:
+	case qapi.EQ:
 		if isNull(value) {
 			condition = append(condition, "IS", "NULL")
 		} else {
 			condition = append(condition, "=", "?")
 		}
-	case query.NEQ:
+	case qapi.NEQ:
 		if isNull(value) {
 			condition = append(condition, "IS NOT", "NULL")
 		} else {
 			condition = append(condition, "<>", "?")
 		}
-	case query.GT:
+	case qapi.GT:
 		condition = append(condition, ">", "?")
-	case query.GTE:
+	case qapi.GTE:
 		condition = append(condition, ">=", "?")
-	case query.LT:
+	case qapi.LT:
 		condition = append(condition, "<", "?")
-	case query.LTE:
+	case qapi.LTE:
 		condition = append(condition, "<=", "?")
-	case query.LK:
+	case qapi.LK:
 		condition = append(condition, "LIKE", "?")
-	case query.IN:
+	case qapi.IN:
 		params := strings.Split(value.(string), "|")
 		paramSection := strings.Repeat("?,", len(params))
 		condition = append(condition, "IN", "("+paramSection[0:len(paramSection)-1]+")")
 		value = params
-	case query.IN_ALT:
+	case qapi.IN_ALT:
 		params := strings.Split(value.(string), "*")
 		paramSection := strings.Repeat("?,", len(params))
 		condition = append(condition, "IN", "("+paramSection[0:len(paramSection)-1]+")")
@@ -59,7 +59,7 @@ func getCondition(condition []string, field string, value interface{}, operation
 }
 
 // GenerateDB generates a valid db query from the given api Query
-func GenerateDB(q *query.Query, db *gorm.DB, entity interface{}) *gorm.DB {
+func GenerateDB(q *qapi.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 	typ := reflect.TypeOf(entity)
 
 	//TODO: checkfieldnames with model
@@ -160,7 +160,7 @@ func generateQQuery(structType reflect.Type, q string) ([]string, []interface{},
 	return where, values, nil
 }
 
-func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}, error) {
+func filter2Sql(filters []qapi.Filter, typ reflect.Type) (string, []interface{}, error) {
 	var where []string
 	var values []interface{}
 	var targetField *reflect.StructField
@@ -184,7 +184,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 			dp := reflection.DepointerField(field.Type)
 			if dp == jsonType {
 				// concat new value
-				condition = getCondition(condition, typ.Name()+"."+fieldNames[0]+"->"+"'$."+fieldNames[1]+"'", filter.Value, query.LK)
+				condition = getCondition(condition, typ.Name()+"."+fieldNames[0]+"->"+"'$."+fieldNames[1]+"'", filter.Value, qapi.LK)
 				values = append(values, filter.Value)
 				targetField = &field
 			} else if cond, f, err := generateFilterQuery(fieldNames, 1, typ, filter); err == nil {
@@ -205,7 +205,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 		}
 		where = append(where, strings.Join(condition, " "))
 		kind := reflection.ExtractRealTypeField(targetField.Type).Kind()
-		if filter.Operation == query.IN {
+		if filter.Operation == qapi.IN {
 			inVals := strings.Split(filter.Value, "|")
 			for i := 0; i < len(inVals); i++ {
 				var err error
@@ -214,7 +214,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 					return "", values, err
 				}
 			}
-		} else if filter.Operation == query.IN_ALT {
+		} else if filter.Operation == qapi.IN_ALT {
 			inVals := strings.Split(filter.Value, "*")
 			for i := 0; i < len(inVals); i++ {
 				var err error
@@ -235,7 +235,7 @@ func filter2Sql(filters []query.Filter, typ reflect.Type) (string, []interface{}
 	return strings.Join(where, " AND "), values, nil
 }
 
-func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, filter query.Filter) (string, *reflect.StructField, error) {
+func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, filter qapi.Filter) (string, *reflect.StructField, error) {
 
 	var condition []string
 

@@ -7,8 +7,8 @@ import (
 	"gitlab.com/sincap/sincap-common/db/queryapi"
 	"gitlab.com/sincap/sincap-common/db/util"
 	"gitlab.com/sincap/sincap-common/logging"
+	"gitlab.com/sincap/sincap-common/middlewares/qapi"
 	"gitlab.com/sincap/sincap-common/reflection"
-	"gitlab.com/sincap/sincap-common/resources/query"
 
 	"github.com/fatih/structs"
 	"go.uber.org/zap"
@@ -16,7 +16,7 @@ import (
 )
 
 // ListSmartSelect calls ListByQuery or ListAll according to the query parameter with smart select support
-func ListSmartSelect(DB *gorm.DB, typ interface{}, query *query.Query, styp interface{}, preloads ...string) (interface{}, int, error) {
+func ListSmartSelect(DB *gorm.DB, typ interface{}, query *qapi.Query, styp interface{}, preloads ...string) (interface{}, int, error) {
 	if query == nil {
 		return ListAllSmartSelect(DB, typ, styp, preloads)
 	}
@@ -24,7 +24,7 @@ func ListSmartSelect(DB *gorm.DB, typ interface{}, query *query.Query, styp inte
 }
 
 // List calls ListByQuery or ListAll according to the query parameter
-func List(DB *gorm.DB, typ interface{}, query *query.Query, preloads ...string) (interface{}, int, error) {
+func List(DB *gorm.DB, typ interface{}, query *qapi.Query, preloads ...string) (interface{}, int, error) {
 	if query == nil {
 		return ListAllSmartSelect(DB, typ, typ, preloads)
 	}
@@ -35,7 +35,7 @@ func List(DB *gorm.DB, typ interface{}, query *query.Query, preloads ...string) 
 }
 
 // ListByQuery returns all records matches with the Query API
-func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *query.Query, preloads []string) (interface{}, int, error) {
+func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *qapi.Query, preloads []string) (interface{}, int, error) {
 	tableName := ""
 	if tableNameFunc, useMethod := reflect.TypeOf(typ).MethodByName("TableName"); useMethod {
 		a := reflect.ValueOf(typ)

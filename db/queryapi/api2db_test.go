@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"gitlab.com/sincap/sincap-common/db/util"
-	"gitlab.com/sincap/sincap-common/resources/query"
+	"gitlab.com/sincap/sincap-common/middlewares/qapi"
 )
 
 type Sample struct {
@@ -44,7 +44,7 @@ type Inner2 struct {
 
 func TestFilter2Sql1Level(t *testing.T) {
 	typ := reflect.TypeOf(Sample{})
-	q := query.Query{Filter: []query.Filter{{Name: "InnerF.Name", Operation: query.EQ, Value: "Osman"}}}
+	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, "Osman", values[0])
@@ -53,7 +53,7 @@ func TestFilter2Sql1Level(t *testing.T) {
 
 func TestFilter2Sql2Level(t *testing.T) {
 	typ := reflect.TypeOf(Sample{})
-	q := query.Query{Filter: []query.Filter{{Name: "InnerF.Inner2F.Name", Operation: query.EQ, Value: "Osman"}}}
+	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Inner2F.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, "Osman", values[0])
@@ -62,7 +62,7 @@ func TestFilter2Sql2Level(t *testing.T) {
 
 func TestFilter2Sql2LevelUint(t *testing.T) {
 	typ := reflect.TypeOf(Sample{})
-	q := query.Query{Filter: []query.Filter{{Name: "InnerF.Inner2F.Age", Operation: query.EQ, Value: "18"}}}
+	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Inner2F.Age", Operation: qapi.EQ, Value: "18"}}}
 	where, values, err := filter2Sql(q.Filter, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(18), values[0])
@@ -71,7 +71,7 @@ func TestFilter2Sql2LevelUint(t *testing.T) {
 
 func TestFilter2SqlPoly1Level(t *testing.T) {
 	typ := reflect.TypeOf(SamplePoly{})
-	q := query.Query{Filter: []query.Filter{{Name: "InnerF.Name", Operation: query.EQ, Value: "Osman"}}}
+	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, "Osman", values[0])
@@ -80,7 +80,7 @@ func TestFilter2SqlPoly1Level(t *testing.T) {
 
 func TestFilter2SqlPoly2Level(t *testing.T) {
 	typ := reflect.TypeOf(SamplePoly{})
-	q := query.Query{Filter: []query.Filter{{Name: "InnerF.Inner2P.Name", Operation: query.EQ, Value: "Osman"}}}
+	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Inner2P.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, "Osman", values[0])
@@ -88,7 +88,7 @@ func TestFilter2SqlPoly2Level(t *testing.T) {
 }
 func TestFilter2SqlPM2M(t *testing.T) {
 	typ := reflect.TypeOf(SampleM2M{})
-	q := query.Query{Filter: []query.Filter{{Name: "Inner2s.Name", Operation: query.EQ, Value: "Osman"}}}
+	q := qapi.Query{Filter: []qapi.Filter{{Name: "Inner2s.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, "Osman", values[0])
@@ -96,7 +96,7 @@ func TestFilter2SqlPM2M(t *testing.T) {
 }
 func TestQ2Sql(t *testing.T) {
 	typ := reflect.TypeOf(Sample{})
-	q := query.Query{Q: "seray"}
+	q := qapi.Query{Q: "seray"}
 	where, values, err := q2Sql(q.Q, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, "%seray%", values[0])
@@ -106,7 +106,7 @@ func TestQ2Sql(t *testing.T) {
 }
 func TestQ2SqlPoly(t *testing.T) {
 	typ := reflect.TypeOf(SamplePoly{})
-	q := query.Query{Q: "seray"}
+	q := qapi.Query{Q: "seray"}
 	where, values, err := q2Sql(q.Q, typ)
 	assert.NoError(t, err)
 	assert.Equal(t, "seray", values[0])

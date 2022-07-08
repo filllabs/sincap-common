@@ -75,7 +75,7 @@ func Test_CrudService_Update(t *testing.T) {
 		ser := &CrudService[user]{
 			Repository: &rep,
 		}
-		err := ser.Update(context.Background(), 1, map[string]interface{}{"Username": "test2"})
+		err := ser.Update(context.Background(), "user", 1, map[string]interface{}{"Username": "test2"})
 		if err != nil {
 			t.Errorf("service.Update() error = %v", err)
 			return

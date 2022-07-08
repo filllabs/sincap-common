@@ -3,12 +3,12 @@ package services
 import (
 	"context"
 
+	"gitlab.com/sincap/sincap-common/middlewares/qapi"
 	"gitlab.com/sincap/sincap-common/repositories"
-	"gitlab.com/sincap/sincap-common/resources/query"
 )
 
 type Service[E any] interface {
-	List(ctx context.Context, query *query.Query, preloads ...string) (interface{}, int, error)
+	List(ctx context.Context, query *qapi.Query, preloads ...string) (interface{}, int, error)
 	Create(ctx context.Context, data *E) error
 	Read(ctx context.Context, id uint) (*E, error)
 	Update(ctx context.Context, table string, id uint, data map[string]interface{}) error
@@ -23,7 +23,7 @@ func NewService[E any](r repositories.Repository[E]) Service[E] {
 	return &CrudService[E]{r}
 }
 
-func (ser *CrudService[E]) List(ctx context.Context, query *query.Query, preloads ...string) (interface{}, int, error) {
+func (ser *CrudService[E]) List(ctx context.Context, query *qapi.Query, preloads ...string) (interface{}, int, error) {
 	e := new(E)
 	list, count, err := ser.Repository.List(*e, query, preloads...)
 	return list, count, ConvertErr(err)

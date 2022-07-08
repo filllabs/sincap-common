@@ -1,20 +1,12 @@
-// Package query helps to parse api query and
+// Package qapi helps to parse api query and
 // includes Context for using it.
-package query
+package qapi
 
 import (
 	"errors"
-	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/gofiber/fiber/v2"
-	"gitlab.com/sincap/sincap-common/resources/contexts"
-	"gitlab.com/sincap/sincap-common/types"
 )
-
-// QueryContextKey is the key to access query object
-var QueryContextKey = contexts.NewContextKey()
 
 // Query holds parsed query params for the query
 type Query struct {
@@ -106,33 +98,12 @@ func (query *Query) Parse(qParams map[string]string) error {
 	return nil
 }
 
-// Context parses the query params for the query
-// Context parses the query params for the query
-func Context(contextKey string) func(ctx *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
-		query := Query{}
-		params := map[string]string{}
-		params["_q"] = ctx.Query("_q", "")
-		params["_fields"] = ctx.Query("_fields", "")
-		params["_preloads"] = ctx.Query("_preloads", "")
-		params["_offset"] = ctx.Query("_offset", "")
-		params["_limit"] = ctx.Query("_limit", "")
-		params["_sort"] = ctx.Query("_sort", "")
-		params["_filter"] = ctx.Query("_filter", "")
-
-		if err := query.Parse(params); err == nil {
-			ctx.Locals("queryapi", &query)
-		}
-		return ctx.Next()
-	}
-}
-
-// ContextWithOwnerID and adds OwnerID filter
-func ContextWithOwnerID(r *http.Request, ownerID uint) *Query {
-	q, ok := r.Context().Value(QueryContextKey).(*Query)
-	if !ok {
-		q = &Query{Limit: -1, Offset: -1}
-	}
-	q.Filter = append(q.Filter, Filter{Name: "OwnerID", Operation: EQ, Value: types.FormatUint(ownerID)})
-	return q
-}
+// // ContextWithOwnerID and adds OwnerID filter
+// func ContextWithOwnerID(r *http.Request, ownerID uint) *Query {
+// 	q, ok := r.Context().Value(QueryContextKey).(*Query)
+// 	if !ok {
+// 		q = &Query{Limit: -1, Offset: -1}
+// 	}
+// 	q.Filter = append(q.Filter, Filter{Name: "OwnerID", Operation: EQ, Value: types.FormatUint(ownerID)})
+// 	return q
+// }

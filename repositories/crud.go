@@ -1,11 +1,11 @@
 package repositories
 
 import (
-	"gitlab.com/sincap/sincap-common/resources/query"
+	"gitlab.com/sincap/sincap-common/middlewares/qapi"
 )
 
 type Repository[E any] interface {
-	List(record E, query *query.Query, preloads ...string) (interface{}, int, error)
+	List(record E, query *qapi.Query, preloads ...string) (interface{}, int, error)
 	Create(record *E) error
 	Read(record *E, id uint, preloads ...string) error
 	Update(record *E) error
