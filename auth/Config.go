@@ -12,4 +12,5 @@ type Config struct {
 	OwnershipBypassIPs []string `json:"ownershipBypassIPs,omitempty"`
 	DeviceIDCheck      bool     `json:"deviceIDCheck"`
 	IPCheck            bool     `json:"ipCheck"`
+	Domain             string   `json:"domain"`
 }
