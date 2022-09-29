@@ -16,10 +16,16 @@ func NewGormRepository[E any](db *gorm.DB) GormRepository[E] {
 func (rep *GormRepository[E]) List(record E, query *qapi.Query, preloads ...string) (interface{}, int, error) {
 	return crud.List(rep.DB, record, query, preloads...)
 }
+func (rep *GormRepository[E]) ListSmartSelect(record any, query *qapi.Query, preloads ...string) (interface{}, int, error) {
+	return crud.List(rep.DB, record, query, preloads...)
+}
 func (rep *GormRepository[E]) Create(record *E) error {
 	return crud.Create(rep.DB, record)
 }
 func (rep *GormRepository[E]) Read(record *E, id uint, preloads ...string) error {
+	return crud.Read(rep.DB, record, id, preloads...)
+}
+func (rep *GormRepository[E]) ReadSmartSelect(record any, id uint, preloads ...string) error {
 	return crud.Read(rep.DB, record, id, preloads...)
 }
 func (rep *GormRepository[E]) Update(record *E) error {

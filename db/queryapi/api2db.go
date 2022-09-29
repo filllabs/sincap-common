@@ -251,8 +251,6 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, fi
 	}
 	ft := reflection.ExtractRealTypeField(field.Type)
 
-	logging.Logger.Info("TYPES", zap.Any("org", field.Type), zap.Any("orgKind", field.Type.Kind()), zap.Any("real", ft), zap.Any("realKind", ft.Kind()))
-
 	if ft.Kind() != reflect.Struct && ft.Kind() != reflect.Slice {
 		return "", nil, fmt.Errorf("%s is not struct field in %s", filter.Name, structType.Name())
 	}
