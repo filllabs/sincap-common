@@ -80,7 +80,7 @@ func GenerateDB(q *qapi.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 			}
 
 		}
-		db = db.Order(strings.Join(sortFields, ", "))
+		db = db.Order(strings.Join(safeColumnNames(sortFields), ", "))
 	}
 	if len(q.Filter) > 0 {
 		where, values, err := filter2Sql(q.Filter, typ)
@@ -320,4 +320,15 @@ func getQapiQPrefix(f *reflect.StructField) (string, bool) {
 
 func isNull(value interface{}) bool {
 	return value == "NULL" || value == "null" || value == "nil"
+}
+
+func safeColumnNames(data []string) []string {
+
+	mapped := make([]string, len(data))
+
+	for i, e := range data {
+		mapped[i] = "'" + e + "'"
+	}
+
+	return mapped
 }
