@@ -25,7 +25,7 @@ func getQapiFields(structType reflect.Type) *[]pair {
 			tag, hasTag := getQapiQPrefix(&field)
 			fieldTyp := field.Type
 			val := reflect.New(fieldTyp)
-			realType, tableName := getTableName(val.Interface())
+			realType, tableName := GetTableName(val.Interface())
 			if hasTag {
 				taggedFields = append(taggedFields, pair{
 					Field:     field,

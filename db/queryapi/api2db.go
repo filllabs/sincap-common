@@ -17,7 +17,7 @@ var jsonType = reflect.TypeOf(types.JSON{})
 
 // GenerateDB generates a valid db query from the given api Query
 func GenerateDB(q *qapi.Query, db *gorm.DB, entity interface{}) *gorm.DB {
-	typ, tableName := getTableName(entity)
+	typ, tableName := GetTableName(entity)
 
 	//TODO: checkfieldnames with model
 	if len(q.Sort) > 0 {
@@ -63,7 +63,10 @@ func GenerateDB(q *qapi.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 	return db
 }
 
-func getTableName(e any) (reflect.Type, string) {
+/*
+GetTableName reads the table name of the given interface{}
+*/
+func GetTableName(e any) (reflect.Type, string) {
 	typ := reflection.ExtractRealTypeField(reflect.TypeOf(e))
 	if m, hasName := typ.MethodByName("TableName"); hasName {
 		res := m.Func.Call([]reflect.Value{reflect.ValueOf(e)})

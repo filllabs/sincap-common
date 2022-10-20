@@ -8,7 +8,7 @@ import (
 )
 
 func TestFilter2Sql1Level(t *testing.T) {
-	typ, tableName := getTableName(Sample{})
+	typ, tableName := GetTableName(Sample{})
 	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ, tableName)
 	assert.NoError(t, err)
@@ -17,7 +17,7 @@ func TestFilter2Sql1Level(t *testing.T) {
 }
 
 func TestFilter2Sql2Level(t *testing.T) {
-	typ, tableName := getTableName(Sample{})
+	typ, tableName := GetTableName(Sample{})
 	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Inner2F.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ, tableName)
 	assert.NoError(t, err)
@@ -26,7 +26,7 @@ func TestFilter2Sql2Level(t *testing.T) {
 }
 
 func TestFilter2Sql2LevelUint(t *testing.T) {
-	typ, tableName := getTableName(Sample{})
+	typ, tableName := GetTableName(Sample{})
 	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Inner2F.Age", Operation: qapi.EQ, Value: "18"}}}
 	where, values, err := filter2Sql(q.Filter, typ, tableName)
 	assert.NoError(t, err)
@@ -35,7 +35,7 @@ func TestFilter2Sql2LevelUint(t *testing.T) {
 }
 
 func TestFilter2SqlPoly1Level(t *testing.T) {
-	typ, tableName := getTableName(SamplePoly{})
+	typ, tableName := GetTableName(SamplePoly{})
 	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ, tableName)
 	assert.NoError(t, err)
@@ -44,7 +44,7 @@ func TestFilter2SqlPoly1Level(t *testing.T) {
 }
 
 func TestFilter2SqlPoly2Level(t *testing.T) {
-	typ, tableName := getTableName(SamplePoly{})
+	typ, tableName := GetTableName(SamplePoly{})
 	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Inner2P.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ, tableName)
 	assert.NoError(t, err)
@@ -52,7 +52,7 @@ func TestFilter2SqlPoly2Level(t *testing.T) {
 	assert.Equal(t, "`SamplePoly`.`ID` IN ( SELECT `Inner1`.`HolderID` FROM `Inner1` WHERE ( `Inner1`.`ID` IN ( SELECT `Inner2`.`HolderID` FROM `Inner2` WHERE ( `Inner2`.`Name` = ? AND `Inner2`.`HolderID` = `Inner1`.`ID` AND `Inner2`.`HolderType` = 'Inner1' ) ) AND `Inner1`.`HolderID` = `SamplePoly`.`ID` AND `Inner1`.`HolderType` = 'SamplePoly' ) )", where)
 }
 func TestFilter2SqlPM2M(t *testing.T) {
-	typ, tableName := getTableName(SampleM2M{})
+	typ, tableName := GetTableName(SampleM2M{})
 	q := qapi.Query{Filter: []qapi.Filter{{Name: "Inner2s.Name", Operation: qapi.EQ, Value: "Osman"}}}
 	where, values, err := filter2Sql(q.Filter, typ, tableName)
 	assert.NoError(t, err)

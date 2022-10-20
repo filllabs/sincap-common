@@ -64,7 +64,7 @@ func Test_getTableName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := getTableName(tt.args.e)
+			got, got1 := GetTableName(tt.args.e)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getTableName() got = %v, want %v", got, tt.want)
 			}

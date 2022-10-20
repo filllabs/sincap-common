@@ -8,7 +8,7 @@ import (
 )
 
 func TestQ2Sql(t *testing.T) {
-	typ, tableName := getTableName(Sample{})
+	typ, tableName := GetTableName(Sample{})
 	q := qapi.Query{Q: "seray"}
 	where, values, err := q2Sql(q.Q, typ, tableName)
 	assert.NoError(t, err)
@@ -18,7 +18,7 @@ func TestQ2Sql(t *testing.T) {
 	assert.Equal(t, "`Sample`.`Name` LIKE ? OR `Sample`.`InnerFID` IN ( SELECT  `Inner1`.`ID`  FROM `Inner1` WHERE ( `Inner1`.`Name` LIKE ? OR `Inner1`.`ID` IN ( SELECT `Inner2`.`HolderID` FROM `Inner2` WHERE ( `Inner2`.`Name` LIKE ? ) ) ) )", where)
 }
 func TestQ2SqlPoly(t *testing.T) {
-	typ, tableName := getTableName(SamplePoly{})
+	typ, tableName := GetTableName(SamplePoly{})
 	q := qapi.Query{Q: "seray"}
 	where, values, err := q2Sql(q.Q, typ, tableName)
 	assert.NoError(t, err)
@@ -28,7 +28,7 @@ func TestQ2SqlPoly(t *testing.T) {
 	assert.Equal(t, "`SamplePoly`.`Name` LIKE ? OR `SamplePoly`.`ID` IN ( SELECT `Inner1`.`HolderID` FROM `Inner1` WHERE ( `Inner1`.`Name` LIKE ? OR `Inner1`.`ID` IN ( SELECT `Inner2`.`HolderID` FROM `Inner2` WHERE ( `Inner2`.`Name` LIKE ? ) ) ) )", where)
 }
 func TestQ2SqlM2m(t *testing.T) {
-	typ, tableName := getTableName(SampleM2M{})
+	typ, tableName := GetTableName(SampleM2M{})
 	q := qapi.Query{Q: "seray"}
 	where, _, err := q2Sql(q.Q, typ, tableName)
 	assert.NoError(t, err)

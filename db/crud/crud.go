@@ -36,14 +36,8 @@ func List(DB *gorm.DB, typ interface{}, query *qapi.Query, preloads ...string) (
 
 // ListByQuery returns all records matches with the Query API
 func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *qapi.Query, preloads []string) (interface{}, int, error) {
-	tableName := ""
-	if tableNameFunc, useMethod := reflect.TypeOf(typ).MethodByName("TableName"); useMethod {
-		a := reflect.ValueOf(typ)
-		values := tableNameFunc.Func.Call([]reflect.Value{a})
-		tableName = values[0].Interface().(string)
-	} else {
-		tableName = reflect.TypeOf(typ).Name()
-	}
+	eTyp, tableName := queryapi.GetTableName(typ)
+
 	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(styp)))
 	records := slice.Interface()
 
@@ -51,7 +45,6 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *qapi.Que
 	var count int64 = -1
 	db := queryapi.GenerateDB(query, DB, typ).Table(tableName)
 
-	eTyp := reflect.TypeOf(typ)
 	cDB := db
 	if _, ok := eTyp.FieldByName("DeletedAt"); ok {
 		cDB.Where("`" + eTyp.Name() + "`.`DeletedAt` is NULL")
@@ -95,8 +88,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *qapi.Que
 
 // ListAllSmartSelect returns all records
 func ListAllSmartSelect(DB *gorm.DB, typ interface{}, styp interface{}, preloads []string) (interface{}, int, error) {
-	eTyp := reflect.TypeOf(typ)
-	tableName := eTyp.Name()
+	eTyp, tableName := queryapi.GetTableName(typ)
 	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(styp)))
 	records := slice.Interface()
 	result := addPreloads(eTyp, DB, preloads).Table(tableName).Find(records)
