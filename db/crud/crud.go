@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"gitlab.com/sincap/sincap-common/db/queryapi"
+	"gitlab.com/sincap/sincap-common/db/types"
 	"gitlab.com/sincap/sincap-common/db/util"
 	"gitlab.com/sincap/sincap-common/logging"
 	"gitlab.com/sincap/sincap-common/middlewares/qapi"
@@ -134,6 +135,15 @@ func Update(DB *gorm.DB, record interface{}) error {
 
 // UpdatePartial Record
 func UpdatePartial(DB *gorm.DB, table string, id uint, record map[string]interface{}) error {
+	// check fields and if inner map convert it to json
+	for k, v := range record {
+		switch v.(type) {
+		case map[string]any, []any:
+			j := types.JSON{}
+			j.Marshal(v)
+			record[k] = j
+		}
+	}
 	result := DB.Table(table).Where("ID=?", id).Updates(record)
 	if result.Error != nil {
 		logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
