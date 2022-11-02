@@ -39,7 +39,7 @@ func List(DB *gorm.DB, typ interface{}, query *qapi.Query, preloads ...string) (
 func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *qapi.Query, preloads []string) (interface{}, int, error) {
 	eTyp, tableName := queryapi.GetTableName(typ)
 
-	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(styp)))
+	slice := reflect.New(reflect.SliceOf(reflect.PointerTo(reflect.TypeOf(styp))))
 	records := slice.Interface()
 
 	// Get count
