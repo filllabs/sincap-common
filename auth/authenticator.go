@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -25,12 +26,22 @@ func CheckTokenOwnership(ctx *fiber.Ctx, config Config, c *claims.DecryptedClaim
 			// fill from slice
 			bypassIPMap = make(map[string]bool, len(config.OwnershipBypassIPs))
 			for _, ip := range config.OwnershipBypassIPs {
+				// clear masks
+				ip = strings.ReplaceAll(ip, ".*", "")
 				bypassIPMap[ip] = true
 			}
 		}
 		// Check if request IP is in OwnershipBypassIPs
-		if _, ok := bypassIPMap[net.ReadUserIP(ctx)]; ok {
+		if _, ok := bypassIPMap[currentIP]; ok {
 			return nil
+		}
+
+		//TODO: check for any masked ips, if no masked do not make this control
+		// Check masked IPs in OwnershipBypassIPs
+		for k, v := range bypassIPMap {
+			if strings.HasPrefix(currentIP, k) && v {
+				return nil
+			}
 		}
 	}
 
