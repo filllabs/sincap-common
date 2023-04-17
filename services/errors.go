@@ -50,14 +50,16 @@ func ConvertErr(err error) error {
 		return nil
 	}
 	code := 500
+	msg := err.Error()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		code = 404
 	} else {
 		code = 500
 	}
 	e := &Error{
-		Code:  code,
-		Inner: err,
+		Code:    code,
+		Inner:   err,
+		Message: &msg,
 	}
 	return e
 }
