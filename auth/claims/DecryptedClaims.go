@@ -3,9 +3,9 @@ package claims
 import (
 	"encoding/json"
 
-	"gitlab.com/sincap/sincap-common/crypto"
+	"github.com/filllabs/sincap-common/crypto"
 
-	"gitlab.com/sincap/sincap-common/logging"
+	"github.com/filllabs/sincap-common/logging"
 	"go.uber.org/zap"
 )
 

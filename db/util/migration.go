@@ -3,10 +3,10 @@ package util
 import (
 	"reflect"
 
-	"gitlab.com/sincap/sincap-common/db"
-	"gitlab.com/sincap/sincap-common/logging"
-	"gitlab.com/sincap/sincap-common/reflection"
-	"gitlab.com/sincap/sincap-common/types"
+	"github.com/filllabs/sincap-common/db"
+	"github.com/filllabs/sincap-common/logging"
+	"github.com/filllabs/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/types"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

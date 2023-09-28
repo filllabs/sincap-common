@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/filllabs/sincap-common/validator"
 	"github.com/gofiber/fiber/v2"
-	"gitlab.com/sincap/sincap-common/validator"
 )
 
 func Validator(key string) func(ctx *fiber.Ctx) error {

@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
+	"github.com/filllabs/sincap-common/middlewares/qapi"
 )
 
 type Repository[E any] interface {

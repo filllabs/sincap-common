@@ -5,7 +5,7 @@ import (
 	"sort"
 	"testing"
 
-	"gitlab.com/sincap/sincap-common/types"
+	"github.com/filllabs/sincap-common/types"
 )
 
 type args struct {

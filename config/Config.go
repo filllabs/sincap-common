@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/filllabs/sincap-common/auth"
+	"github.com/filllabs/sincap-common/db"
+	"github.com/filllabs/sincap-common/server"
+	"github.com/filllabs/sincap-common/server/fileserver"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
-	"gitlab.com/sincap/sincap-common/auth"
-	"gitlab.com/sincap/sincap-common/db"
-	"gitlab.com/sincap/sincap-common/server"
-	"gitlab.com/sincap/sincap-common/server/fileserver"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )

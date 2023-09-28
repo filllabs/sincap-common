@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
+	"github.com/filllabs/sincap-common/middlewares/qapi"
 )
 
 var timeKind = reflect.TypeOf(time.Time{}).Kind()

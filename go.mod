@@ -1,4 +1,4 @@
-module gitlab.com/sincap/sincap-common
+module github.com/filllabs/sincap-common
 
 go 1.18
 

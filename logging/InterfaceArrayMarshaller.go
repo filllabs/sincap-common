@@ -3,7 +3,7 @@ package logging
 import (
 	"reflect"
 
-	"gitlab.com/sincap/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/reflection"
 	"go.uber.org/zap/zapcore"
 )
 

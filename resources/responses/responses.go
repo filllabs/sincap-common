@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/filllabs/sincap-common/json"
 	"github.com/go-chi/render"
-	"gitlab.com/sincap/sincap-common/json"
 )
 
 // Err renders the given error as json with the given status

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/filllabs/sincap-common/auth/claims"
+	"github.com/filllabs/sincap-common/net"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt"
-	"gitlab.com/sincap/sincap-common/auth/claims"
-	"gitlab.com/sincap/sincap-common/net"
 )
 
 // CheckTokenOwnership validates the request information with the info inside of the claims

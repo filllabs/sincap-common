@@ -4,12 +4,12 @@ import (
 	"reflect"
 	"strings"
 
-	"gitlab.com/sincap/sincap-common/db/queryapi"
-	"gitlab.com/sincap/sincap-common/db/types"
-	"gitlab.com/sincap/sincap-common/db/util"
-	"gitlab.com/sincap/sincap-common/logging"
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
-	"gitlab.com/sincap/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/db/queryapi"
+	"github.com/filllabs/sincap-common/db/types"
+	"github.com/filllabs/sincap-common/db/util"
+	"github.com/filllabs/sincap-common/logging"
+	"github.com/filllabs/sincap-common/middlewares/qapi"
+	"github.com/filllabs/sincap-common/reflection"
 
 	"github.com/fatih/structs"
 	"go.uber.org/zap"

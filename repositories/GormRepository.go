@@ -1,8 +1,8 @@
 package repositories
 
 import (
-	"gitlab.com/sincap/sincap-common/db/crud"
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
+	"github.com/filllabs/sincap-common/db/crud"
+	"github.com/filllabs/sincap-common/middlewares/qapi"
 	"gorm.io/gorm"
 )
 

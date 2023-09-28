@@ -3,8 +3,8 @@ package services
 import (
 	"context"
 
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
-	"gitlab.com/sincap/sincap-common/repositories"
+	"github.com/filllabs/sincap-common/middlewares/qapi"
+	"github.com/filllabs/sincap-common/repositories"
 )
 
 type Service[E any] interface {

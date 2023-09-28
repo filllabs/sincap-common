@@ -3,9 +3,9 @@ package db
 import (
 	"testing"
 
+	"github.com/filllabs/sincap-common/db/zapgorm"
+	"github.com/filllabs/sincap-common/logging"
 	mocket "github.com/selvatico/go-mocket"
-	"gitlab.com/sincap/sincap-common/db/zapgorm"
-	"gitlab.com/sincap/sincap-common/logging"
 	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"

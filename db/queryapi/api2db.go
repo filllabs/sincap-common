@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/sincap/sincap-common/db/types"
+	"github.com/filllabs/sincap-common/db/types"
 	"gorm.io/gorm"
 
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
-	"gitlab.com/sincap/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/middlewares/qapi"
+	"github.com/filllabs/sincap-common/reflection"
 )
 
 var timeKind = reflect.TypeOf(time.Time{}).Kind()

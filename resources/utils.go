@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/clbanning/mxj/v2"
-	"gitlab.com/sincap/sincap-common/json"
+	"github.com/filllabs/sincap-common/json"
 )
 
 // Query2Map converts query parameters to a map

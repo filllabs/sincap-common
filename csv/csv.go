@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/sincap/sincap-common/logging"
-	"gitlab.com/sincap/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/logging"
+	"github.com/filllabs/sincap-common/reflection"
 	"go.uber.org/zap"
 )
 

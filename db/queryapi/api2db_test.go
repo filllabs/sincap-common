@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"gitlab.com/sincap/sincap-common/db/util"
+	"github.com/filllabs/sincap-common/db/util"
 )
 
 type Sample struct {

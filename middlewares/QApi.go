@@ -1,8 +1,8 @@
 package middlewares
 
 import (
+	"github.com/filllabs/sincap-common/middlewares/qapi"
 	"github.com/gofiber/fiber/v2"
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
 )
 
 // QApi parses the query params for the query

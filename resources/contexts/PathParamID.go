@@ -5,18 +5,18 @@ import (
 	"net/http"
 	"reflect"
 
+	"github.com/filllabs/sincap-common/db"
+	"github.com/filllabs/sincap-common/logging"
+	"github.com/filllabs/sincap-common/resources/responses"
+	"github.com/filllabs/sincap-common/types"
 	"github.com/go-chi/chi"
-	"gitlab.com/sincap/sincap-common/db"
-	"gitlab.com/sincap/sincap-common/logging"
-	"gitlab.com/sincap/sincap-common/resources/responses"
-	"gitlab.com/sincap/sincap-common/types"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 // PathParamID is a ready to use context for reading "id" path param.
 // Reads the parameter and receives from the database to put in to the context with the given key
-func PathParamID(key ContextKey, i interface{},paramKey ...string) func(next http.Handler) http.Handler {
+func PathParamID(key ContextKey, i interface{}, paramKey ...string) func(next http.Handler) http.Handler {
 	t := reflect.TypeOf(i)
 	idParamKey := "id"
 	if len(paramKey) == 1 {
@@ -43,7 +43,7 @@ func PathParamID(key ContextKey, i interface{},paramKey ...string) func(next htt
 
 // PathParamIDUnscoped is a ready to use context for reading "id" path param with Unscoped support.
 // Reads the parameter and receives from the database to put in to the context with the given key
-func PathParamIDUnscoped(key ContextKey, i interface{},paramKey ...string) func(next http.Handler) http.Handler {
+func PathParamIDUnscoped(key ContextKey, i interface{}, paramKey ...string) func(next http.Handler) http.Handler {
 	t := reflect.TypeOf(i)
 	idParamKey := "id"
 	if len(paramKey) == 1 {
