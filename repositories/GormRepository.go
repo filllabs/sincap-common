@@ -22,16 +22,16 @@ func (rep *GormRepository[E]) ListSmartSelect(record any, query *qapi.Query, pre
 func (rep *GormRepository[E]) Create(record *E) error {
 	return crud.Create(rep.DB, record)
 }
-func (rep *GormRepository[E]) Read(record *E, id uint, preloads ...string) error {
+func (rep *GormRepository[E]) Read(record *E, id any, preloads ...string) error {
 	return crud.Read(rep.DB, record, id, preloads...)
 }
-func (rep *GormRepository[E]) ReadSmartSelect(record any, id uint, preloads ...string) error {
+func (rep *GormRepository[E]) ReadSmartSelect(record any, id any, preloads ...string) error {
 	return crud.Read(rep.DB, record, id, preloads...)
 }
 func (rep *GormRepository[E]) Update(record *E) error {
 	return crud.Update(rep.DB, record)
 }
-func (rep *GormRepository[E]) UpdatePartial(table string, id uint, record map[string]interface{}) error {
+func (rep *GormRepository[E]) UpdatePartial(table string, id any, record map[string]interface{}) error {
 	return crud.UpdatePartial(rep.DB, table, id, record)
 }
 func (rep *GormRepository[E]) Delete(record *E) error {

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"gitlab.com/sincap/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/reflection"
 )
 
 func Test_getQapiFields(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"strings"
 
-	"gitlab.com/sincap/sincap-common/db/util"
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
-	"gitlab.com/sincap/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/db/util"
+	"github.com/filllabs/sincap-common/middlewares/qapi"
+	"github.com/filllabs/sincap-common/reflection"
 )
 
 func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (string, []interface{}, error) {

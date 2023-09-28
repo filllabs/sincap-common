@@ -3,8 +3,8 @@ package queryapi
 import (
 	"testing"
 
+	"github.com/filllabs/sincap-common/middlewares/qapi"
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
 )
 
 func TestFilter2Sql1Level(t *testing.T) {

@@ -113,13 +113,13 @@ func Create(DB *gorm.DB, record interface{}) error {
 }
 
 // Read Record
-func Read(DB *gorm.DB, record interface{}, id uint, preloads ...string) error {
+func Read(DB *gorm.DB, record interface{}, id any, preloads ...string) error {
 	if len(preloads) > 0 {
 		DB = addPreloads(reflection.DepointerField(reflect.TypeOf(record)), DB, preloads)
 	}
 	result := DB.First(record, id)
 	if result.Error != nil {
-		logging.Logger.Error("Read error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Uint("id", id))
+		logging.Logger.Error("Read error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("id", id))
 	}
 	return result.Error
 }
@@ -134,7 +134,7 @@ func Update(DB *gorm.DB, record interface{}) error {
 }
 
 // UpdatePartial Record
-func UpdatePartial(DB *gorm.DB, table string, id uint, record map[string]interface{}) error {
+func UpdatePartial(DB *gorm.DB, table string, id any, record map[string]interface{}) error {
 	// check fields and if inner map convert it to json
 	for k, v := range record {
 		switch v.(type) {

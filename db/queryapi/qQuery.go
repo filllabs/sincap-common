@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"strings"
 
-	"gitlab.com/sincap/sincap-common/db/util"
-	"gitlab.com/sincap/sincap-common/logging"
+	"github.com/filllabs/sincap-common/db/util"
+	"github.com/filllabs/sincap-common/logging"
 	"go.uber.org/zap"
 )
 
