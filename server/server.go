@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/filllabs/sincap-common/db"
+	"github.com/filllabs/sincap-common/logging"
+	"github.com/filllabs/sincap-common/server/graceful"
 	"github.com/go-chi/chi"
-	"gitlab.com/sincap/sincap-common/db"
-	"gitlab.com/sincap/sincap-common/logging"
-	"gitlab.com/sincap/sincap-common/server/graceful"
 	"go.uber.org/zap"
 )
 

@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/filllabs/sincap-common/auth/claims"
 	"github.com/go-chi/jwtauth"
-	"gitlab.com/sincap/sincap-common/auth/claims"
 	"go.uber.org/zap"
 	melody "gopkg.in/olahol/melody.v1"
 )

@@ -1,6 +1,6 @@
 package resources
 
-import "gitlab.com/sincap/sincap-common/resources/contexts"
+import "github.com/filllabs/sincap-common/resources/contexts"
 
 // Resource is the the definition of a single service resource with minimum set of predefined information.
 type Resource struct {

@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"gitlab.com/sincap/sincap-common/logging"
+	"github.com/filllabs/sincap-common/logging"
 )
 
 // SignalChan is the single and the only channel for listening cancel signals.

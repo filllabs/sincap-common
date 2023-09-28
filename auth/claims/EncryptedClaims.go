@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
-	"gitlab.com/sincap/sincap-common/crypto"
-	"gitlab.com/sincap/sincap-common/logging"
+	"github.com/filllabs/sincap-common/crypto"
+	"github.com/filllabs/sincap-common/logging"
+	"github.com/golang-jwt/jwt/v4"
 	"go.uber.org/zap"
 )
 

@@ -3,8 +3,10 @@ package util
 import (
 	"reflect"
 
-	"gitlab.com/sincap/sincap-common/logging"
-	"gitlab.com/sincap/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/db"
+	"github.com/filllabs/sincap-common/logging"
+	"github.com/filllabs/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/types"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -34,6 +36,21 @@ func DropRelationTables(DB *gorm.DB, models ...interface{}) {
 	for _, name := range tables {
 		if err := DB.Migrator().DropTable(name); err != nil {
 			logging.Logger.Panic("Cannot drop tables", zap.Error(err))
+		}
+	}
+}
+
+// AutoMigrate migrates all models defined
+// It is for creating tables,relations and indexdes.
+func AutoMigrate(command string, dbconfig db.Config, DB *gorm.DB, models ...interface{}) {
+	logging.Logger.Info("AutoMigrating all tables")
+	migCmds := dbconfig.AutoMigrate
+	if command == "init" {
+		DropAll(DB, models...)
+	}
+	if types.SliceContains(migCmds, command) {
+		if err := DB.AutoMigrate(models...); err != nil {
+			logging.Logger.Panic("Cannot create/alter tables", zap.Error(err))
 		}
 	}
 }

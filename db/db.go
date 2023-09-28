@@ -4,7 +4,7 @@
 package db
 
 import (
-	"gitlab.com/sincap/sincap-common/logging"
+	"github.com/filllabs/sincap-common/logging"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	// for Driver support

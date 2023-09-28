@@ -1,24 +1,25 @@
-package query
+package qapi
 
 import (
-	"context"
-	"net/http/httptest"
-	"strings"
 	"testing"
 
-	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestQuery(t *testing.T) {
 	api := Query{}
-	r := httptest.NewRequest("POST", "http://localhost:3000/api/menus?_q=nissan&_fields=manufacturer,model,id,color&_offset=10&_limit=5&_sort=-manufacturer,+model&_filter=name=seray,active!=true,order|=1|2,orderAlt*=1*2", strings.NewReader("Read will return these bytes"))
+	//"http://localhost:3000/api/menus?_q=nissan&_fields=manufacturer,model,id,color&_offset=10&_limit=5&_sort=-manufacturer,+model&_filter=name=seray,active!=true,order|=1|2,orderAlt*=1*2"
 
-	rctx := chi.NewRouteContext()
+	params := map[string]string{
+		"_q":      "nissan",
+		"_fields": "manufacturer,model,id,color",
+		"_offset": "10",
+		"_limit":  "5",
+		"_sort":   "-manufacturer,+model",
+		"_filter": "name=seray,active!=true,order|=1|2,orderAlt*=1*2",
+	}
 
-	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
-
-	err := api.Parse(r)
+	err := api.Parse(params)
 	assert.NoError(t, err, "Parser error")
 
 	assert.Equal(t, "nissan", api.Q, "Q test failed.")
@@ -36,13 +37,14 @@ func TestQuery(t *testing.T) {
 }
 func TestQueryJustLimit(t *testing.T) {
 	api := Query{}
-	r := httptest.NewRequest("POST", "http://localhost:3000/api/menus?_offset=10&_limit=5", strings.NewReader("Read will return these bytes"))
+	// "http://localhost:3000/api/menus?_offset=10&_limit=5",
 
-	rctx := chi.NewRouteContext()
+	params := map[string]string{
+		"_offset": "10",
+		"_limit":  "5",
+	}
 
-	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
-
-	err := api.Parse(r)
+	err := api.Parse(params)
 	assert.NoError(t, err, "Parser error")
 
 	assert.Equal(t, "", api.Q, "Q test failed.")

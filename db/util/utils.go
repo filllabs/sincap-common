@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/sincap/sincap-common/resources/query"
+	"github.com/filllabs/sincap-common/middlewares/qapi"
 )
 
 var timeKind = reflect.TypeOf(time.Time{}).Kind()
@@ -42,7 +42,7 @@ func GetPolymorphic(f *reflect.StructField) (string, bool) {
 	return "", false
 }
 
-func ConvertValue(filter query.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
+func ConvertValue(filter qapi.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
 	if value == "NULL" || value == "null" || value == "nil" {
 		// Do not add anything
 		return values, nil

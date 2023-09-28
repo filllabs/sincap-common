@@ -3,26 +3,29 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"strings"
 
-	"gitlab.com/sincap/sincap-common/db"
-	"gitlab.com/sincap/sincap-common/server"
-	"gitlab.com/sincap/sincap-common/server/fileserver"
+	"github.com/filllabs/sincap-common/auth"
+	"github.com/filllabs/sincap-common/db"
+	"github.com/filllabs/sincap-common/server"
+	"github.com/filllabs/sincap-common/server/fileserver"
+	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 )
 
-// Config is the configuration of the application
 type Config struct {
-	Server     server.Config       `json:"server"`
-	FileServer []fileserver.Config `json:"fileServer"`
-	DB         []db.Config         `json:"db"`
-	Auth       Auth                `json:"auth"`
-	Log        zap.Config          `json:"log"`
-	Mail       Mail                `json:"mail"`
-	Recaptcha  Recaptcha           `json:"recaptcha"`
+	Server server.Config `json:"server,omitempty" yaml:"server,omitempty" `
+	Auth   auth.Config   `json:"auth" yaml:"auth"`
+
+	FileServer []fileserver.Config `json:"fileServer,omitempty" yaml:"fileServer,omitempty"`
+	DB         []db.Config         `json:"db,omitempty" yaml:"db,omitempty"`
+	Log        zap.Config          `json:"log,omitempty" yaml:"log,omitempty"`
+	Mail       Mail                `json:"mail,omitempty" yaml:"mail,omitempty"`
 }
 
 // Load loads the configuration file from the given path and fills the given config pointer
@@ -36,7 +39,24 @@ func Load(path string, config interface{}) error {
 			return fmt.Errorf("Config: Can't read configuration file from %v", err)
 		}
 	}
-	err = json.Unmarshal(data, config)
+	// check for the file extension
+	if strings.HasSuffix(path, ".json") || strings.HasSuffix(path, ".json5") {
+		err = json5.Unmarshal(data, config)
+	} else if strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml") {
+		err = yaml.Unmarshal(data, config)
+	} else {
+		// if none provided check env variable
+		env := os.Getenv(path)
+		if env == "" {
+			return fmt.Errorf("Config: Can't read configuration file from %s", path)
+		}
+		if err = json5.Unmarshal(data, config); err != nil {
+			if err = yaml.Unmarshal(data, config); err != nil {
+				log.Panicf("Config: Can't read configuration file from %s", path)
+				return err
+			}
+		}
+	}
 	log.Println("Config:", "Loaded ", path)
 	return err
 }

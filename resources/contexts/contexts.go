@@ -1,7 +1,7 @@
 // Package contexts provides several utilities and context implementations
 package contexts
 
-import "gitlab.com/sincap/sincap-common/random"
+import "github.com/filllabs/sincap-common/random"
 
 // ContextKey is a special key type for using resource context key
 type ContextKey string
