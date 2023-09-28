@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -117,6 +118,12 @@ func Read(DB *gorm.DB, record interface{}, id any, preloads ...string) error {
 	if len(preloads) > 0 {
 		DB = addPreloads(reflection.DepointerField(reflect.TypeOf(record)), DB, preloads)
 	}
+
+	// if id is string so add ID=? to query in order to support (gorm wants qull cond if id is string, if number it works by default)
+	if _, ok := id.(string); ok {
+		id = fmt.Sprintf("ID='%s'", id)
+	}
+
 	result := DB.First(record, id)
 	if result.Error != nil {
 		logging.Logger.Error("Read error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("id", id))
