@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"gitlab.com/sincap/sincap-common/db/types"
+	"github.com/filllabs/sincap-common/db/types"
 )
 
 var jArr = types.JSON(`["John","Jane"]`)

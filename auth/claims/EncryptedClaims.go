@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/filllabs/sincap-common/crypto"
+	"github.com/filllabs/sincap-common/logging"
 	"github.com/golang-jwt/jwt/v4"
-	"gitlab.com/sincap/sincap-common/crypto"
-	"gitlab.com/sincap/sincap-common/logging"
 	"go.uber.org/zap"
 )
 

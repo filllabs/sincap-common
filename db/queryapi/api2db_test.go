@@ -4,10 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
-	"gitlab.com/sincap/sincap-common/db/util"
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
+	"github.com/filllabs/sincap-common/db/util"
 )
 
 type Sample struct {
@@ -26,7 +23,7 @@ type SamplePoly struct {
 type SampleM2M struct {
 	ID      uint
 	Name    string
-	Inner2s []*Inner2 `gorm:"many2many:SampleM2MInner2"`
+	Inner2s []*Inner2 `gorm:"many2many:SampleM2MInner2"  qapi:"q:*"`
 }
 type Inner1 struct {
 	ID uint
@@ -41,76 +38,39 @@ type Inner2 struct {
 	Name string `qapi:"q:*%;"`
 	Age  uint
 }
-
-func TestFilter2Sql1Level(t *testing.T) {
-	typ := reflect.TypeOf(Sample{})
-	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Name", Operation: qapi.EQ, Value: "Osman"}}}
-	where, values, err := filter2Sql(q.Filter, typ)
-	assert.NoError(t, err)
-	assert.Equal(t, "Osman", values[0])
-	assert.Equal(t, "InnerFID IN ( SELECT ID FROM Inner1 WHERE ( Name = ? ) )", where)
+type SampleName struct {
+	ID   uint
+	Name string `qapi:"q:*%;"`
+	Age  uint
 }
 
-func TestFilter2Sql2Level(t *testing.T) {
-	typ := reflect.TypeOf(Sample{})
-	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Inner2F.Name", Operation: qapi.EQ, Value: "Osman"}}}
-	where, values, err := filter2Sql(q.Filter, typ)
-	assert.NoError(t, err)
-	assert.Equal(t, "Osman", values[0])
-	assert.Equal(t, "InnerFID IN ( SELECT ID FROM Inner1 WHERE ( Inner2FID IN ( SELECT ID FROM Inner2 WHERE ( Name = ? ) ) ) )", where)
+func (SampleName) TableName() string {
+	return "Sample"
 }
 
-func TestFilter2Sql2LevelUint(t *testing.T) {
-	typ := reflect.TypeOf(Sample{})
-	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Inner2F.Age", Operation: qapi.EQ, Value: "18"}}}
-	where, values, err := filter2Sql(q.Filter, typ)
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(18), values[0])
-	assert.Equal(t, "InnerFID IN ( SELECT ID FROM Inner1 WHERE ( Inner2FID IN ( SELECT ID FROM Inner2 WHERE ( Age = ? ) ) ) )", where)
-}
-
-func TestFilter2SqlPoly1Level(t *testing.T) {
-	typ := reflect.TypeOf(SamplePoly{})
-	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Name", Operation: qapi.EQ, Value: "Osman"}}}
-	where, values, err := filter2Sql(q.Filter, typ)
-	assert.NoError(t, err)
-	assert.Equal(t, "Osman", values[0])
-	assert.Equal(t, "ID IN ( SELECT HolderID FROM Inner1 WHERE ( Name = ? AND HolderID = `SamplePoly`.ID AND HolderType = 'SamplePoly' ) )", where)
-}
-
-func TestFilter2SqlPoly2Level(t *testing.T) {
-	typ := reflect.TypeOf(SamplePoly{})
-	q := qapi.Query{Filter: []qapi.Filter{{Name: "InnerF.Inner2P.Name", Operation: qapi.EQ, Value: "Osman"}}}
-	where, values, err := filter2Sql(q.Filter, typ)
-	assert.NoError(t, err)
-	assert.Equal(t, "Osman", values[0])
-	assert.Equal(t, "ID IN ( SELECT HolderID FROM Inner1 WHERE ( ID IN ( SELECT HolderID FROM Inner2 WHERE ( Name = ? AND HolderID = `Inner1`.ID AND HolderType = 'Inner1' ) ) AND HolderID = `SamplePoly`.ID AND HolderType = 'SamplePoly' ) )", where)
-}
-func TestFilter2SqlPM2M(t *testing.T) {
-	typ := reflect.TypeOf(SampleM2M{})
-	q := qapi.Query{Filter: []qapi.Filter{{Name: "Inner2s.Name", Operation: qapi.EQ, Value: "Osman"}}}
-	where, values, err := filter2Sql(q.Filter, typ)
-	assert.NoError(t, err)
-	assert.Equal(t, "Osman", values[0])
-	assert.Equal(t, "ID IN ( SELECT SampleM2M_ID FROM SampleM2MInner2 WHERE ( Inner2_ID IN ( SELECT ID FROM Inner2 WHERE ( Name = ? ) ) ) )", where)
-}
-func TestQ2Sql(t *testing.T) {
-	typ := reflect.TypeOf(Sample{})
-	q := qapi.Query{Q: "seray"}
-	where, values, err := q2Sql(q.Q, typ)
-	assert.NoError(t, err)
-	assert.Equal(t, "%seray%", values[0])
-	assert.Equal(t, "%seray", values[1])
-	assert.Equal(t, "seray%", values[2])
-	assert.Equal(t, "Name LIKE ? OR InnerFID IN ( SELECT ID FROM Inner1 WHERE ( Name LIKE ? OR ID IN ( SELECT HolderID FROM Inner2 WHERE ( Name LIKE ? ) ) ) )", where)
-}
-func TestQ2SqlPoly(t *testing.T) {
-	typ := reflect.TypeOf(SamplePoly{})
-	q := qapi.Query{Q: "seray"}
-	where, values, err := q2Sql(q.Q, typ)
-	assert.NoError(t, err)
-	assert.Equal(t, "seray", values[0])
-	assert.Equal(t, "%seray", values[1])
-	assert.Equal(t, "seray%", values[2])
-	assert.Equal(t, "Name LIKE ? OR ID IN ( SELECT HolderID FROM Inner1 WHERE ( Name LIKE ? OR ID IN ( SELECT HolderID FROM Inner2 WHERE ( Name LIKE ? ) ) ) )", where)
+func Test_getTableName(t *testing.T) {
+	type args struct {
+		e any
+	}
+	tests := []struct {
+		name  string
+		args  args
+		want  reflect.Type
+		want1 string
+	}{
+		{name: "name from type", args: args{e: Sample{}}, want: reflect.TypeOf(Sample{}), want1: "Sample"},
+		{name: "name from type", args: args{e: SampleName{}}, want: reflect.TypeOf(SampleName{}), want1: "Sample"},
+		{name: "name from primitive", args: args{e: "Test"}, want: reflect.TypeOf(""), want1: "string"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1 := GetTableName(tt.args.e)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getTableName() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("getTableName() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
 }

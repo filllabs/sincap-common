@@ -4,6 +4,10 @@ package middlewares
 import (
 	"fmt"
 
+	"github.com/filllabs/sincap-common/logging"
+	"github.com/filllabs/sincap-common/net"
+	"github.com/filllabs/sincap-common/resources/middlewares"
+	"github.com/filllabs/sincap-common/server"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/etag"
@@ -11,10 +15,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
-	"gitlab.com/sincap/sincap-common/logging"
-	"gitlab.com/sincap/sincap-common/net"
-	"gitlab.com/sincap/sincap-common/resources/middlewares"
-	"gitlab.com/sincap/sincap-common/server"
 	"go.uber.org/zap"
 )
 

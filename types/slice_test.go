@@ -3,8 +3,8 @@ package types_test
 import (
 	"testing"
 
+	"github.com/filllabs/sincap-common/types"
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/sincap/sincap-common/types"
 )
 
 func TestContainsSlice(t *testing.T) {

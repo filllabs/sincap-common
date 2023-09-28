@@ -3,7 +3,7 @@ package types_test
 import (
 	"testing"
 
-	"gitlab.com/sincap/sincap-common/types"
+	"github.com/filllabs/sincap-common/types"
 )
 
 func TestParseUint(t *testing.T) {

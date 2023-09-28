@@ -2,12 +2,13 @@ package auth
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/filllabs/sincap-common/auth/claims"
+	"github.com/filllabs/sincap-common/net"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt"
-	"gitlab.com/sincap/sincap-common/auth/claims"
-	"gitlab.com/sincap/sincap-common/net"
 )
 
 // CheckTokenOwnership validates the request information with the info inside of the claims
@@ -25,12 +26,22 @@ func CheckTokenOwnership(ctx *fiber.Ctx, config Config, c *claims.DecryptedClaim
 			// fill from slice
 			bypassIPMap = make(map[string]bool, len(config.OwnershipBypassIPs))
 			for _, ip := range config.OwnershipBypassIPs {
+				// clear masks
+				ip = strings.ReplaceAll(ip, ".*", "")
 				bypassIPMap[ip] = true
 			}
 		}
 		// Check if request IP is in OwnershipBypassIPs
-		if _, ok := bypassIPMap[net.ReadUserIP(ctx)]; ok {
+		if _, ok := bypassIPMap[currentIP]; ok {
 			return nil
+		}
+
+		//TODO: check for any masked ips, if no masked do not make this control
+		// Check masked IPs in OwnershipBypassIPs
+		for k, v := range bypassIPMap {
+			if strings.HasPrefix(currentIP, k) && v {
+				return nil
+			}
 		}
 	}
 
@@ -79,6 +90,7 @@ func RenewTokenIfNeeded(dclaims *claims.DecryptedClaims, ctx *fiber.Ctx, config 
 				HTTPOnly: config.HTTPOnly,
 				Secure:   config.Secure,
 				SameSite: fiber.CookieSameSiteLaxMode,
+				Domain:   config.Domain,
 			})
 		}
 	}
@@ -94,6 +106,7 @@ func InvalidateCookies(ctx *fiber.Ctx, config Config) {
 		HTTPOnly: config.HTTPOnly,
 		Secure:   config.Secure,
 		SameSite: fiber.CookieSameSiteLaxMode,
+		Domain:   config.Domain,
 	}
 	ctx.Cookie(&jwt)
 
@@ -103,6 +116,7 @@ func InvalidateCookies(ctx *fiber.Ctx, config Config) {
 		Path:     "/",
 		MaxAge:   int(config.Timeout),
 		SameSite: fiber.CookieSameSiteLaxMode,
+		Domain:   config.Domain,
 	}
 	ctx.Cookie(&loggedin)
 }

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/filllabs/sincap-common/logging"
 	"github.com/go-chi/chi"
-	"gitlab.com/sincap/sincap-common/logging"
 	"go.uber.org/zap"
 )
 

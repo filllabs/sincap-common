@@ -3,7 +3,7 @@ package types
 import (
 	"reflect"
 
-	"gitlab.com/sincap/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/reflection"
 )
 
 // SliceContains checks if a slice contains an element

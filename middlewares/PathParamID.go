@@ -3,8 +3,8 @@ package middlewares
 import (
 	"reflect"
 
+	"github.com/filllabs/sincap-common/logging"
 	"github.com/gofiber/fiber/v2"
-	"gitlab.com/sincap/sincap-common/logging"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

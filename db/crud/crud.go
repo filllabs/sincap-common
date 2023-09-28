@@ -1,14 +1,16 @@
 package crud
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
-	"gitlab.com/sincap/sincap-common/db/queryapi"
-	"gitlab.com/sincap/sincap-common/db/util"
-	"gitlab.com/sincap/sincap-common/logging"
-	"gitlab.com/sincap/sincap-common/middlewares/qapi"
-	"gitlab.com/sincap/sincap-common/reflection"
+	"github.com/filllabs/sincap-common/db/queryapi"
+	"github.com/filllabs/sincap-common/db/types"
+	"github.com/filllabs/sincap-common/db/util"
+	"github.com/filllabs/sincap-common/logging"
+	"github.com/filllabs/sincap-common/middlewares/qapi"
+	"github.com/filllabs/sincap-common/reflection"
 
 	"github.com/fatih/structs"
 	"go.uber.org/zap"
@@ -36,23 +38,19 @@ func List(DB *gorm.DB, typ interface{}, query *qapi.Query, preloads ...string) (
 
 // ListByQuery returns all records matches with the Query API
 func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *qapi.Query, preloads []string) (interface{}, int, error) {
-	tableName := ""
-	if tableNameFunc, useMethod := reflect.TypeOf(typ).MethodByName("TableName"); useMethod {
-		a := reflect.ValueOf(typ)
-		values := tableNameFunc.Func.Call([]reflect.Value{a})
-		tableName = values[0].Interface().(string)
-	} else {
-		tableName = reflect.TypeOf(typ).Name()
-	}
-	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(styp)))
+	eTyp, tableName := queryapi.GetTableName(typ)
+
+	slice := reflect.New(reflect.SliceOf(reflect.PointerTo(reflect.TypeOf(styp))))
 	records := slice.Interface()
 
 	// Get count
 	var count int64 = -1
 	db := queryapi.GenerateDB(query, DB, typ).Table(tableName)
 
-	eTyp := reflect.TypeOf(typ)
 	cDB := db
+	if _, ok := eTyp.FieldByName("DeletedAt"); ok {
+		cDB.Where("`" + tableName + "`.`DeletedAt` is NULL")
+	}
 
 	cDB = cDB.Count(&count)
 	if cDB.Error != nil {
@@ -92,8 +90,7 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *qapi.Que
 
 // ListAllSmartSelect returns all records
 func ListAllSmartSelect(DB *gorm.DB, typ interface{}, styp interface{}, preloads []string) (interface{}, int, error) {
-	eTyp := reflect.TypeOf(typ)
-	tableName := eTyp.Name()
+	eTyp, tableName := queryapi.GetTableName(typ)
 	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(styp)))
 	records := slice.Interface()
 	result := addPreloads(eTyp, DB, preloads).Table(tableName).Find(records)
@@ -117,13 +114,19 @@ func Create(DB *gorm.DB, record interface{}) error {
 }
 
 // Read Record
-func Read(DB *gorm.DB, record interface{}, id uint, preloads ...string) error {
+func Read(DB *gorm.DB, record interface{}, id any, preloads ...string) error {
 	if len(preloads) > 0 {
 		DB = addPreloads(reflection.DepointerField(reflect.TypeOf(record)), DB, preloads)
 	}
+
+	// if id is string so add ID=? to query in order to support (gorm wants qull cond if id is string, if number it works by default)
+	if _, ok := id.(string); ok {
+		id = fmt.Sprintf("ID='%s'", id)
+	}
+
 	result := DB.First(record, id)
 	if result.Error != nil {
-		logging.Logger.Error("Read error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Uint("id", id))
+		logging.Logger.Error("Read error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("id", id))
 	}
 	return result.Error
 }
@@ -138,7 +141,16 @@ func Update(DB *gorm.DB, record interface{}) error {
 }
 
 // UpdatePartial Record
-func UpdatePartial(DB *gorm.DB, table string, id uint, record map[string]interface{}) error {
+func UpdatePartial(DB *gorm.DB, table string, id any, record map[string]interface{}) error {
+	// check fields and if inner map convert it to json
+	for k, v := range record {
+		switch v.(type) {
+		case map[string]any, []any:
+			j := types.JSON{}
+			j.Marshal(v)
+			record[k] = j
+		}
+	}
 	result := DB.Table(table).Where("ID=?", id).Updates(record)
 	if result.Error != nil {
 		logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))

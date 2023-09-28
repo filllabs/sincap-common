@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/sincap/sincap-common/db"
-	"gitlab.com/sincap/sincap-common/repositories"
+	"github.com/filllabs/sincap-common/db"
+	"github.com/filllabs/sincap-common/repositories"
 	"gorm.io/gorm"
 )
 
