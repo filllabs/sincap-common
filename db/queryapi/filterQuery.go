@@ -55,7 +55,8 @@ func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (stri
 		}
 		where = append(where, strings.Join(condition, " "))
 		kind := reflection.ExtractRealTypeField(targetField.Type).Kind()
-		if filter.Operation == qapi.IN {
+		switch filter.Operation {
+		case qapi.IN:
 			inVals := strings.Split(filter.Value, "|")
 			for i := 0; i < len(inVals); i++ {
 				var err error
@@ -64,7 +65,7 @@ func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (stri
 					return "", values, err
 				}
 			}
-		} else if filter.Operation == qapi.IN_ALT {
+		case qapi.IN_ALT:
 			inVals := strings.Split(filter.Value, "*")
 			for i := 0; i < len(inVals); i++ {
 				var err error
@@ -73,7 +74,7 @@ func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (stri
 					return "", values, err
 				}
 			}
-		} else {
+		default:
 			var err error
 			values, err = util.ConvertValue(filter, typ, kind, values, filter.Value)
 			if err != nil {

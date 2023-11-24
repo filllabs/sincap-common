@@ -16,7 +16,7 @@ var timeKind = reflect.TypeOf(time.Time{}).Kind()
 var jsonType = reflect.TypeOf(types.JSON{})
 
 // GenerateDB generates a valid db query from the given api Query
-func GenerateDB(q *qapi.Query, db *gorm.DB, entity interface{}) *gorm.DB {
+func GenerateDB(q *qapi.Query, db *gorm.DB, entity interface{}) (*gorm.DB, error) {
 	typ, tableName := GetTableName(entity)
 
 	//TODO: checkfieldnames with model
@@ -42,8 +42,7 @@ func GenerateDB(q *qapi.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 	if len(q.Filter) > 0 {
 		where, values, err := filter2Sql(q.Filter, typ, tableName)
 		if err != nil {
-			db.AddError(err)
-			return db
+			return db, err
 		}
 		db = db.Where(where, values...)
 	}
@@ -55,12 +54,11 @@ func GenerateDB(q *qapi.Query, db *gorm.DB, entity interface{}) *gorm.DB {
 	if len(q.Q) > 0 {
 		where, values, err := q2Sql(q.Q, typ, tableName)
 		if err != nil {
-			db.AddError(err)
-			return db
+			return db, err
 		}
 		db = db.Where(where, values...)
 	}
-	return db
+	return db, nil
 }
 
 /*

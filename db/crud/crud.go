@@ -45,7 +45,12 @@ func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *qapi.Que
 
 	// Get count
 	var count int64 = -1
-	db := queryapi.GenerateDB(query, DB, typ).Table(tableName)
+	db, err := queryapi.GenerateDB(query, DB, typ)
+	if err != nil {
+		return make([]interface{}, 0), 0, err
+	}
+
+	db = db.Table(tableName)
 
 	cDB := db
 	if _, ok := eTyp.FieldByName("DeletedAt"); ok {
