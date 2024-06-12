@@ -126,7 +126,8 @@ func Read(DB *gorm.DB, record interface{}, id any, preloads ...string) error {
 
 	// if id is string so add ID=? to query in order to support (gorm wants qull cond if id is string, if number it works by default)
 	if _, ok := id.(string); ok {
-		id = fmt.Sprintf("ID='%s'", id)
+		_, tableName := queryapi.GetTableName(record)
+		id = fmt.Sprintf("`%s`.`ID`='%s'", tableName, id)
 	}
 
 	result := DB.First(record, id)
