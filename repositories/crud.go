@@ -13,4 +13,5 @@ type Repository[E any] interface {
 	Update(record *E) error
 	UpdatePartial(table string, id any, record map[string]interface{}) error
 	Delete(record *E) error
+	DeleteAll(record *E, ids []any) error
 }

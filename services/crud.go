@@ -11,10 +11,11 @@ type Service[E any] interface {
 	List(ctx context.Context, query *qapi.Query, preloads ...string) (interface{}, int, error)
 	ListSmartSelect(ctx context.Context, e any, query *qapi.Query, preloads ...string) (interface{}, int, error)
 	Create(ctx context.Context, data *E) error
-	Read(ctx context.Context, id any) (*E, error)
+	Read(ctx context.Context, id any, preload ...string) (*E, error)
 	ReadSmartSelect(ctx context.Context, e any, id any) (any, error)
 	Update(ctx context.Context, table string, id any, data map[string]interface{}) error
 	Delete(ctx context.Context, id any) (*E, error)
+	DeleteAll(ctx context.Context, u *E, ids []any) error
 }
 
 type CrudService[E any] struct {
@@ -40,9 +41,9 @@ func (ser *CrudService[E]) Create(ctx context.Context, u *E) error {
 	return ser.Repository.Create(u)
 }
 
-func (ser *CrudService[E]) Read(ctx context.Context, uid any) (*E, error) {
+func (ser *CrudService[E]) Read(ctx context.Context, uid any, preload ...string) (*E, error) {
 	e := new(E)
-	if err := ser.Repository.Read(e, uid); err != nil {
+	if err := ser.Repository.Read(e, uid, preload...); err != nil {
 		return nil, ConvertErr(err)
 	}
 	return e, nil
@@ -68,4 +69,8 @@ func (ser *CrudService[E]) Delete(ctx context.Context, uid any) (*E, error) {
 		return nil, ConvertErr(err)
 	}
 	return e, nil
+}
+
+func (ser *CrudService[E]) DeleteAll(ctx context.Context, u *E, ids []any) error {
+	return ser.Repository.DeleteAll(u, ids)
 }

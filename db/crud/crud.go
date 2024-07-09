@@ -173,6 +173,15 @@ func Delete(DB *gorm.DB, record interface{}) error {
 	return result.Error
 }
 
+// DeleteAll Record
+func DeleteAll(DB *gorm.DB, record interface{}, ids []any) error {
+	result := DB.Delete(record, ids)
+	if result.Error != nil {
+		logging.Logger.Error("Delete error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
+	}
+	return result.Error
+}
+
 // Associations opens "save_associations" for the given DB
 func Associations(DB *gorm.DB) *gorm.DB {
 	return DB.Session(&gorm.Session{FullSaveAssociations: true})

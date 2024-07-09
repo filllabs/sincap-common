@@ -37,6 +37,9 @@ func (rep *GormRepository[E]) UpdatePartial(table string, id any, record map[str
 func (rep *GormRepository[E]) Delete(record *E) error {
 	return crud.Delete(rep.DB, record)
 }
+func (rep *GormRepository[E]) DeleteAll(record *E, ids []any) error {
+	return crud.Delete(rep.DB, record)
+}
 
 type TxAble interface {
 	Begin(opts ...interface{}) interface{}
