@@ -6,102 +6,42 @@ import (
 	"gorm.io/gorm"
 )
 
-// GormRepository is a generic repository struct for GORM operations
-type GormRepository[E any] struct {
-	DB *gorm.DB
-}
-
-// NewGormRepository creates a new instance of GormRepository
-func NewGormRepository[E any](db *gorm.DB) GormRepository[E] {
-	return GormRepository[E]{DB: db}
+// GormRepository is a repository struct for GORM operations
+type GormRepository struct {
 }
 
 // List retrieves a list of records based on the given query and preloads
-func (rep *GormRepository[E]) List(record E, query *qapi.Query, preloads ...string) (interface{}, int, error) {
-	return ListWithDB(rep.DB, record, query, preloads...)
-}
-
-// ListSmartSelect retrieves a list of records with smart select functionality
-func (rep *GormRepository[E]) ListSmartSelect(record any, query *qapi.Query, preloads ...string) (interface{}, int, error) {
-	return ListSmartSelectWithDB(rep.DB, record, query, preloads...)
-}
-
-// Create inserts a new record into the database
-func (rep *GormRepository[E]) Create(record *E) error {
-	return CreateWithDB(rep.DB, record)
+func (rep *GormRepository) List(db *gorm.DB, records []any, query *qapi.Query) ([]any, int, error) {
+	return crud.List(db, records, query)
 }
 
 // Read retrieves a single record by its ID with optional preloads
-func (rep *GormRepository[E]) Read(record *E, id any, preloads ...string) error {
-	return ReadWithDB(rep.DB, record, id, preloads...)
+func (rep *GormRepository) Read(db *gorm.DB, record any, id any, preloads ...string) error {
+	return crud.Read(db, record, id, preloads...)
 }
 
-// ReadSmartSelect retrieves a single record with smart select functionality
-func (rep *GormRepository[E]) ReadSmartSelect(record any, id any, preloads ...string) error {
-	return ReadSmartSelectWithDB(rep.DB, record, id, preloads...)
-}
-
-// Update modifies an existing record in the database
-func (rep *GormRepository[E]) Update(record *E) error {
-	return UpdateWithDB(rep.DB, record)
-}
-
-// UpdatePartial performs a partial update on a record using a map of fields
-func (rep *GormRepository[E]) UpdatePartial(table string, id any, record map[string]interface{}) error {
-	return UpdatePartialWithDB(rep.DB, table, id, record)
-}
-
-// Delete removes a record from the database
-func (rep *GormRepository[E]) Delete(record *E) error {
-	return DeleteWithDB(rep.DB, record)
-}
-
-// DeleteAll removes multiple records from the database based on their IDs
-func (rep *GormRepository[E]) DeleteAll(record *E, ids []any) error {
-	return DeleteAllWithDB(rep.DB, record, ids)
-}
-
-// ListWithDB retrieves a list of records based on the given query and preloads
-func ListWithDB[E any](db *gorm.DB, record E, query *qapi.Query, preloads ...string) (interface{}, int, error) {
-	return crud.List(db, record, query, preloads...)
-}
-
-// ListSmartSelectWithDB retrieves a list of records with smart select functionality
-func ListSmartSelectWithDB(db *gorm.DB, record any, query *qapi.Query, preloads ...string) (interface{}, int, error) {
-	return crud.List(db, record, query, preloads...)
-}
-
-// CreateWithDB inserts a new record into the database
-func CreateWithDB[E any](db *gorm.DB, record *E) error {
+// Create inserts a new record into the database
+func (rep *GormRepository) Create(db *gorm.DB, record any) error {
 	return crud.Create(db, record)
 }
 
-// ReadWithDB retrieves a single record by its ID with optional preloads
-func ReadWithDB[E any](db *gorm.DB, record *E, id any, preloads ...string) error {
-	return crud.Read(db, record, id, preloads...)
+// Update handles both full and partial updates
+func (rep *GormRepository) Update(db *gorm.DB, record any, id any, fields map[string]any) error {
+	if len(fields) == 0 {
+		return crud.Update(db, record)
+	}
+	// For partial updates, record parameter contains the table name as string
+	tableName, ok := record.(string)
+	if !ok {
+		return crud.Update(db, record)
+	}
+	return crud.UpdatePartial(db, tableName, id, fields)
 }
 
-// ReadSmartSelectWithDB retrieves a single record with smart select functionality
-func ReadSmartSelectWithDB(db *gorm.DB, record any, id any, preloads ...string) error {
-	return crud.Read(db, record, id, preloads...)
-}
-
-// UpdateWithDB modifies an existing record in the database
-func UpdateWithDB[E any](db *gorm.DB, record *E) error {
-	return crud.Update(db, record)
-}
-
-// UpdatePartialWithDB performs a partial update on a record using a map of fields
-func UpdatePartialWithDB(db *gorm.DB, table string, id any, record map[string]interface{}) error {
-	return crud.UpdatePartial(db, table, id, record)
-}
-
-// DeleteWithDB removes a record from the database
-func DeleteWithDB[E any](db *gorm.DB, record *E) error {
-	return crud.Delete(db, record)
-}
-
-// DeleteAllWithDB removes multiple records from the database based on their IDs
-func DeleteAllWithDB[E any](db *gorm.DB, record *E, ids []any) error {
+// Delete handles both single and bulk deletions
+func (rep *GormRepository) Delete(db *gorm.DB, record any, ids ...any) error {
+	if len(ids) == 0 {
+		return crud.Delete(db, record)
+	}
 	return crud.DeleteAll(db, record, ids)
 }

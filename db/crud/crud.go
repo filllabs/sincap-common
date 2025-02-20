@@ -12,101 +12,57 @@ import (
 	"github.com/filllabs/sincap-common/middlewares/qapi"
 	"github.com/filllabs/sincap-common/reflection"
 
-	"github.com/fatih/structs"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-// ListSmartSelect calls ListByQuery or ListAll according to the query parameter with smart select support
-func ListSmartSelect(DB *gorm.DB, typ interface{}, query *qapi.Query, styp interface{}, preloads ...string) (interface{}, int, error) {
-	if query == nil {
-		return ListAllSmartSelect(DB, typ, styp, preloads)
-	}
-	return ListByQuery(DB, typ, styp, query, preloads)
-}
-
 // List calls ListByQuery or ListAll according to the query parameter
-func List(DB *gorm.DB, typ interface{}, query *qapi.Query, preloads ...string) (interface{}, int, error) {
-	if query == nil {
-		return ListAllSmartSelect(DB, typ, typ, preloads)
-	}
-	if len(query.Preloads) > 0 {
-		preloads = append(preloads, query.Preloads...)
-	}
-	return ListByQuery(DB, typ, typ, query, preloads)
-}
+func List(DB *gorm.DB, records []any, query *qapi.Query) ([]any, int, error) {
 
-// ListByQuery returns all records matches with the Query API
-func ListByQuery(DB *gorm.DB, typ interface{}, styp interface{}, query *qapi.Query, preloads []string) (interface{}, int, error) {
-	eTyp, tableName := queryapi.GetTableName(typ)
+	entityType, tableName := queryapi.GetTableName(records)
 
-	slice := reflect.New(reflect.SliceOf(reflect.PointerTo(reflect.TypeOf(styp))))
-	records := slice.Interface()
+	// CHECK: since entity used no need to manually add
+	// _, hasDeletedAt := entityType.FieldByName("DeletedAt")
+	calculateCount := query.Offset > 0 || query.Limit > 0
 
 	// Get count
 	var count int64 = -1
-	db, err := queryapi.GenerateDB(query, DB, typ)
+	db, err := queryapi.GenerateDB(query, DB, records)
 	if err != nil {
-		return make([]interface{}, 0), 0, err
+		return records, 0, err
 	}
 
 	db = db.Table(tableName)
 
 	cDB := db
-	if _, ok := eTyp.FieldByName("DeletedAt"); ok {
-		cDB.Where("`" + tableName + "`.`DeletedAt` is NULL")
+	// CHECK: since entity used no need to manually add
+	// if hasDeletedAt {
+	// 	cDB.Where("`" + tableName + "`.`DeletedAt` is NULL")
+	// }
+
+	// check if the count is needed as seperate query (if there is a pagination)
+	if calculateCount {
+		cDB = cDB.Count(&count)
+		if cDB.Error != nil {
+			return records, 0, cDB.Error
+		}
+		// Add Offset and limit
+		db = db.Offset(query.Offset)
+		db = db.Limit(query.Limit)
 	}
 
-	cDB = cDB.Count(&count)
-	if cDB.Error != nil {
-		return make([]interface{}, 0), 0, cDB.Error
+	db = addPreloads(entityType, db, query.Preloads)
+	if len(query.Fields) > 0 {
+		db = db.Select(query.Fields)
 	}
-
-	// Add Offset and limit than select
-	db = db.Offset(query.Offset)
-	db = db.Limit(query.Limit)
-	db = addPreloads(eTyp, db, preloads)
 	result := db.Find(records)
 	if result.Error != nil {
-		return make([]interface{}, 0), 0, result.Error
+		return records, 0, result.Error
 	}
-	recordArr := reflect.ValueOf(records).Elem()
-
-	filteredList := make([]interface{}, 0, count)
-	if len(query.Fields) == 0 {
-		for i := 0; i < recordArr.Len(); i++ {
-			// since the is no fileds user entity instead of map
-			entity := recordArr.Index(i).Interface()
-			filteredList = append(filteredList, entity)
-		}
-		return filteredList, int(count), result.Error
+	if !calculateCount {
+		return records, len(records), nil
 	}
-	for i := 0; i < recordArr.Len(); i++ {
-		entity := recordArr.Index(i).Interface()
-		json := structs.Map(entity)
-		filtered := make(map[string]interface{}, len(query.Fields))
-		for i := range query.Fields {
-			filtered[query.Fields[i]] = json[query.Fields[i]]
-		}
-		filteredList = append(filteredList, filtered)
-	}
-	return filteredList, int(count), result.Error
-}
-
-// ListAllSmartSelect returns all records
-func ListAllSmartSelect(DB *gorm.DB, typ interface{}, styp interface{}, preloads []string) (interface{}, int, error) {
-	eTyp, tableName := queryapi.GetTableName(typ)
-	slice := reflect.New(reflect.SliceOf(reflect.TypeOf(styp)))
-	records := slice.Interface()
-	result := addPreloads(eTyp, DB, preloads).Table(tableName).Find(records)
-	recordArr := reflect.ValueOf(records).Elem()
-
-	return recordArr.Interface(), recordArr.Len(), result.Error
-}
-
-// ListAll returns all records
-func ListAll(DB *gorm.DB, typ interface{}, preloads []string) (interface{}, int, error) {
-	return ListAllSmartSelect(DB, typ, typ, preloads)
+	return records, int(count), nil
 }
 
 // Create Record
