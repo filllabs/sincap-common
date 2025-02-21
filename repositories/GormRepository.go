@@ -11,7 +11,7 @@ type GormRepository struct {
 }
 
 // List retrieves a list of records based on the given query and preloads
-func (rep *GormRepository) List(db *gorm.DB, records []any, query *qapi.Query) ([]any, int, error) {
+func (rep *GormRepository) List(db *gorm.DB, records any, query *qapi.Query) (int, error) {
 	return crud.List(db, records, query)
 }
 
@@ -26,16 +26,8 @@ func (rep *GormRepository) Create(db *gorm.DB, record any) error {
 }
 
 // Update handles both full and partial updates
-func (rep *GormRepository) Update(db *gorm.DB, record any, id any, fields map[string]any) error {
-	if len(fields) == 0 {
-		return crud.Update(db, record)
-	}
-	// For partial updates, record parameter contains the table name as string
-	tableName, ok := record.(string)
-	if !ok {
-		return crud.Update(db, record)
-	}
-	return crud.UpdatePartial(db, tableName, id, fields)
+func (rep *GormRepository) Update(db *gorm.DB, record any, fieldParams ...map[string]any) error {
+	return crud.Update(db, record, fieldParams...)
 }
 
 // Delete handles both single and bulk deletions

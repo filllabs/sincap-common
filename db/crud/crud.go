@@ -17,7 +17,16 @@ import (
 )
 
 // List calls ListByQuery or ListAll according to the query parameter
-func List(DB *gorm.DB, records []any, query *qapi.Query) ([]any, int, error) {
+func List(DB *gorm.DB, records any, query *qapi.Query) (int, error) {
+	value := reflect.ValueOf(records)
+	if value.Kind() != reflect.Pointer {
+		return 0, fmt.Errorf("records must be a pointer")
+	}
+
+	elem := value.Elem()
+	if elem.Kind() != reflect.Slice {
+		return 0, fmt.Errorf("records must be a pointer to slice")
+	}
 
 	entityType, tableName := queryapi.GetTableName(records)
 
@@ -29,7 +38,7 @@ func List(DB *gorm.DB, records []any, query *qapi.Query) ([]any, int, error) {
 	var count int64 = -1
 	db, err := queryapi.GenerateDB(query, DB, records)
 	if err != nil {
-		return records, 0, err
+		return 0, err
 	}
 
 	db = db.Table(tableName)
@@ -44,7 +53,7 @@ func List(DB *gorm.DB, records []any, query *qapi.Query) ([]any, int, error) {
 	if calculateCount {
 		cDB = cDB.Count(&count)
 		if cDB.Error != nil {
-			return records, 0, cDB.Error
+			return 0, cDB.Error
 		}
 		// Add Offset and limit
 		db = db.Offset(query.Offset)
@@ -57,16 +66,16 @@ func List(DB *gorm.DB, records []any, query *qapi.Query) ([]any, int, error) {
 	}
 	result := db.Find(records)
 	if result.Error != nil {
-		return records, 0, result.Error
+		return 0, result.Error
 	}
 	if !calculateCount {
-		return records, len(records), nil
+		return elem.Len(), nil
 	}
-	return records, int(count), nil
+	return int(count), nil
 }
 
 // Create Record
-func Create(DB *gorm.DB, record interface{}) error {
+func Create(DB *gorm.DB, record any) error {
 	result := DB.Model(record).Create(record)
 	if result.Error != nil {
 		logging.Logger.Error("Create error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
@@ -75,7 +84,7 @@ func Create(DB *gorm.DB, record interface{}) error {
 }
 
 // Read Record
-func Read(DB *gorm.DB, record interface{}, id any, preloads ...string) error {
+func Read(DB *gorm.DB, record any, id any, preloads ...string) error {
 	if len(preloads) > 0 {
 		DB = addPreloads(reflection.DepointerField(reflect.TypeOf(record)), DB, preloads)
 	}
@@ -93,35 +102,48 @@ func Read(DB *gorm.DB, record interface{}, id any, preloads ...string) error {
 	return result.Error
 }
 
-// Update Record
-func Update(DB *gorm.DB, record interface{}) error {
-	result := DB.Save(record)
-	if result.Error != nil {
-		logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
+// Update Updates the record with the given fields
+// If fields is empty, updates the record with all fields
+// fields is a map of field names to values
+// examples:
+//
+//	Update(DB, &User{Name: "John Doe"}) => Updates all users with name "John Doe"
+//	Update(DB, &User{Name: "John Doe", Age: 30}) => Updates all users with name "John Doe" and age 30
+//	Update(DB, &User{Name: "John Doe", Age: 30}, map[string]any{"Age": 41}) => Updates Age column to 41 for all users with Name "John Doe" and Age 30
+//	Update(DB, &User{ID:1} , map[string]any{"Age": 41}) => Updates Age column to 41 for user with ID 1
+func Update(DB *gorm.DB, model any, fieldsParams ...map[string]any) error {
+	if len(fieldsParams) == 0 {
+		// update full record
+		result := DB.Save(model)
+		if result.Error != nil {
+			logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(model)), zap.Error(result.Error), zap.Any("record", model))
+		}
+		return result.Error
 	}
-	return result.Error
-}
+	// error if fields more than 1 or first element is not a map
+	if len(fieldsParams) > 1 || fieldsParams[0] == nil {
+		return fmt.Errorf("update failed: invalid fields parameter")
+	}
 
-// UpdatePartial Record
-func UpdatePartial(DB *gorm.DB, table string, id any, record map[string]interface{}) error {
+	fields := fieldsParams[0]
 	// check fields and if inner map convert it to json
-	for k, v := range record {
+	for k, v := range fields {
 		switch v.(type) {
 		case map[string]any, []any:
 			j := types.JSON{}
 			j.Marshal(v)
-			record[k] = j
+			fields[k] = j
 		}
 	}
-	result := DB.Table(table).Where("ID=?", id).Updates(record)
+	result := DB.Model(model).Updates(fields)
 	if result.Error != nil {
-		logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
+		logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(model)), zap.Error(result.Error), zap.Any("record", fields))
 	}
 	return result.Error
 }
 
 // Delete Record
-func Delete(DB *gorm.DB, record interface{}) error {
+func Delete(DB *gorm.DB, record any) error {
 	result := DB.Delete(record)
 	if result.Error != nil {
 		logging.Logger.Error("Delete error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
@@ -130,7 +152,7 @@ func Delete(DB *gorm.DB, record interface{}) error {
 }
 
 // DeleteAll Record
-func DeleteAll(DB *gorm.DB, record interface{}, ids []any) error {
+func DeleteAll(DB *gorm.DB, record any, ids []any) error {
 	result := DB.Delete(record, ids)
 	if result.Error != nil {
 		logging.Logger.Error("Delete error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))

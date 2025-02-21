@@ -9,7 +9,7 @@ import (
 type Repository interface {
 	// List combines previous List and ListSmartSelect
 	// If record is of type E, performs regular list, otherwise does smart select
-	List(db *gorm.DB, record any, query *qapi.Query, preloads ...string) (interface{}, int, error)
+	List(db *gorm.DB, record any, query *qapi.Query) (int, error)
 
 	// Read combines previous Read and ReadSmartSelect
 	// If record is of type *E, performs regular read, otherwise does smart select
@@ -20,7 +20,7 @@ type Repository interface {
 	// Update handles both full and partial updates
 	// For full updates: provide record of type *E and empty fields parameter
 	// For partial updates: provide table name, id, and fields map
-	Update(db *gorm.DB, record any, id any, fields map[string]interface{}) error
+	Update(db *gorm.DB, record any, fieldParams ...map[string]any) error
 
 	// Delete handles both single and bulk deletions
 	// When ids is nil or empty, deletes the single record
