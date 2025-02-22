@@ -1,4 +1,4 @@
-package crud
+package mysql
 
 import (
 	"fmt"
@@ -107,10 +107,11 @@ func Read(DB *gorm.DB, record any, id any, preloads ...string) error {
 // fields is a map of field names to values
 // examples:
 //
-//	Update(DB, &User{Name: "John Doe"}) => Updates all users with name "John Doe"
-//	Update(DB, &User{Name: "John Doe", Age: 30}) => Updates all users with name "John Doe" and age 30
-//	Update(DB, &User{Name: "John Doe", Age: 30}, map[string]any{"Age": 41}) => Updates Age column to 41 for all users with Name "John Doe" and Age 30
-//	Update(DB, &User{ID:1} , map[string]any{"Age": 41}) => Updates Age column to 41 for user with ID 1
+//		Update(DB, &User{Name: "John Doe"}) => Updates all users with name "John Doe"
+//		Update(DB, &User{Name: "John Doe", Age: 30}) => Updates all users with name "John Doe" and age 30
+//	  Update(DB, &User{ID:1 , Name: "John Doe"}) => Updates user with ID 1 and Name "John Doe"
+//		Update(DB, &User{Name: "John Doe", Age: 30}, map[string]any{"Age": 41}) => Updates Age column to 41 for all users with Name "John Doe" and Age 30
+//		Update(DB, &User{ID:1} , map[string]any{"Age": 41}) => Updates Age column to 41 for user with ID 1
 func Update(DB *gorm.DB, model any, fieldsParams ...map[string]any) error {
 	if len(fieldsParams) == 0 {
 		// update full record
