@@ -35,5 +35,5 @@ func (rep *GormRepository) Delete(db *gorm.DB, record any, ids ...any) error {
 	if len(ids) == 0 {
 		return mysql.Delete(db, record)
 	}
-	return mysql.DeleteAll(db, record, ids)
+	return mysql.DeleteAll(db, record, ids...)
 }

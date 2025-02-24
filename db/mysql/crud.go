@@ -153,8 +153,8 @@ func Delete(DB *gorm.DB, record any) error {
 }
 
 // DeleteAll Record
-func DeleteAll(DB *gorm.DB, record any, ids []any) error {
-	result := DB.Delete(record, ids)
+func DeleteAll(DB *gorm.DB, record any, ids ...any) error {
+	result := DB.Delete(record, ids...)
 	if result.Error != nil {
 		logging.Logger.Error("Delete error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(result.Error), zap.Any("record", record))
 	}
