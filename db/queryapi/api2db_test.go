@@ -3,8 +3,6 @@ package queryapi
 import (
 	"reflect"
 	"testing"
-
-	"github.com/filllabs/sincap-common/db/util"
 )
 
 type Sample struct {
@@ -27,7 +25,7 @@ type SampleM2M struct {
 }
 type Inner1 struct {
 	ID uint
-	util.PolymorphicModel
+	// util.PolymorphicModel
 	Name      string `qapi:"q:%*;"`
 	Inner2FID uint
 	Inner2F   *Inner2

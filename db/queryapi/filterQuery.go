@@ -155,6 +155,7 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, ta
 	}
 	return strings.Join(condition, " "), targetField, nil
 }
+
 func getCondition(condition []string, field string, value interface{}, operation qapi.Operation) []string {
 	condition = append(condition, field)
 	switch operation {

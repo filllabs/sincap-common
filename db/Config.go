@@ -3,14 +3,11 @@ package db
 import (
 	"testing"
 
-	"github.com/filllabs/sincap-common/db/zapgorm"
 	"github.com/filllabs/sincap-common/logging"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 	mocket "github.com/selvatico/go-mocket"
 	"go.uber.org/zap"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/schema"
 )
 
 // Config holds database configuration
@@ -31,55 +28,46 @@ func Configure(dbConfs []Config) {
 		for i, v := range conf.Args {
 			args[i] = v
 		}
-		conn, err := gorm.Open(mysql.Open(conf.Args[0]), &gorm.Config{
-			NamingStrategy:                           AsIsNamingStrategy(),
-			Logger:                                   zapgorm.New(logging.Logger, conf.LogMode),
-			DisableForeignKeyConstraintWhenMigrating: true,
-			SkipDefaultTransaction:                   true,
-		})
+		conn, err := sqlx.Connect("mysql", conf.Args[0])
 
 		if err != nil {
 			logging.Logger.Fatal("DB Could not open connection.", zap.String("name", conf.Name), zap.Error(err))
 		}
-		DB := conn.Session(&gorm.Session{FullSaveAssociations: true})
-		db[conf.Name] = DB
+
+		// Set connection pool settings
+		conn.SetMaxOpenConns(25)
+		conn.SetMaxIdleConns(25)
+
+		db[conf.Name] = conn
 		logging.Logger.Info("DB initialized", zap.String("name", conf.Name))
 	}
 }
 
 // ConfigureTestDB returns new mock db connection for test and override db instance with mock db connection.
-func ConfigureTestDB(t *testing.T) (*gorm.DB, *mocket.MockCatcher) {
-	mocket.Catcher.Reset()
+func ConfigureTestDB(t *testing.T) (*sqlx.DB, *mocket.MockCatcher) {
+	mocket.Catcher.Register()
+	mocket.Catcher.Logging = true
+	// GORM
+	conn, err := sqlx.Connect(mocket.DriverName, "connection_string") // Can be any connection string
+	if err != nil {
+		t.Fatalf("Failed to connect to mock DB: %v", err)
+	}
+
+	catcher := mocket.Catcher.Reset()
+	db["default"] = conn
+	return conn, catcher
+}
+
+// ConfigureMockDB configures a mock database connection for testing
+func ConfigureMockDB(name string) *sqlx.DB {
 	mocket.Catcher.Register()
 	mocket.Catcher.Logging = true
 
-	dialect := mysql.New(mysql.Config{
-		DSN:                       "mockdb",
-		DriverName:                mocket.DriverName,
-		SkipInitializeWithVersion: true,
-	})
-
-	mockDB, err := gorm.Open(dialect, new(gorm.Config))
+	conn, err := sqlx.Connect(mocket.DriverName, "connection_string")
 	if err != nil {
-		t.Fatalf("failed to open mock database connection: %s", err)
-	}
-	db["default"] = mockDB
-	return mockDB, mocket.Catcher
-}
-
-// ConfigureTestDB returns new mock db connection for test and override db instance with mock db connection.
-func ConfigureMockDB(name string) *gorm.DB {
-	mockDB, err := gorm.Open(sqlite.Open("file:"+name+"?mode=memory&cache=shared"),
-		&gorm.Config{
-			NamingStrategy: schema.NamingStrategy{
-				SingularTable: true,
-			},
-		},
-	)
-	if err != nil {
-		logging.Logger.Fatal("Cant create  mock sqlite db", zap.Error(err))
+		logging.Logger.Fatal("Failed to connect to mock DB", zap.String("name", name), zap.Error(err))
 	}
 
-	db["default"] = mockDB
-	return mockDB
+	db[name] = conn
+	return conn
 }
