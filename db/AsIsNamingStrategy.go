@@ -52,6 +52,24 @@ func (n *asIsNamer) IndexName(table, column string) string {
 	}
 	return idxName
 }
+
+// SchemaName generate schema name
 func (n *asIsNamer) SchemaName(table string) string {
-	return strings.Split(".", table)[0]
+	return strings.Split(table, ".")[0]
+}
+
+// UniqueName generate unique constraint name
+func (n *asIsNamer) UniqueName(table, column string) string {
+	uniqueName := fmt.Sprintf("uniq_%s_%s", table, column)
+	uniqueName = strings.Replace(uniqueName, ".", "_", -1)
+
+	// Handle long names similar to IndexName
+	if utf8.RuneCountInString(uniqueName) > 64 {
+		h := sha1.New()
+		h.Write([]byte(uniqueName))
+		bs := h.Sum(nil)
+
+		uniqueName = fmt.Sprintf("uniq_%s_%s", table, column)[0:56] + string(bs)[:8]
+	}
+	return uniqueName
 }

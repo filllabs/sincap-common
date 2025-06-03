@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 
+	"github.com/filllabs/sincap-common/db/mysql/translations"
 	"github.com/filllabs/sincap-common/middlewares/qapi"
 	"github.com/filllabs/sincap-common/repositories"
 	"gorm.io/gorm"
@@ -23,8 +24,11 @@ func NewGormService(dbCtxKey string) GormService {
 }
 
 // List retrieves a collection of records based on the query parameters
-func (s *GormService) List(ctx context.Context, record any, query *qapi.Query) (int, error) {
+func (s *GormService) List(ctx context.Context, record any, query *qapi.Query, lang ...string) (int, error) {
 	db := ctx.Value(s.dbCtxKey).(*gorm.DB)
+	if len(lang) > 0 {
+		return translations.List(db, record, query, lang)
+	}
 	return s.repository.List(db, record, query)
 }
 
