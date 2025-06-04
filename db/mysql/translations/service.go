@@ -3,8 +3,10 @@ package translations
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/filllabs/sincap-common/db/queryapi"
 	"github.com/filllabs/sincap-common/db/util"
@@ -172,7 +174,7 @@ func handleTranslatedSorting(db *gorm.DB, query *qapi.Query, langCode string,
 						jsonPath := fmt.Sprintf("$.\"%s\"", langCode)
 						db = db.Joins(fmt.Sprintf("JOIN %s ON %s.ID = %sID",
 							relation, relation, strings.ToLower(relation))).
-							Order(fmt.Sprintf("JSON_UNQUOTE(JSON_EXTRACT(%s.%s, '%s')) %s",
+							Order(fmt.Sprintf("LOWER(JSON_UNQUOTE(JSON_EXTRACT(%s.%s, '%s'))) %s",
 								relation, fieldName, jsonPath, sortDirection))
 						handled = true
 						break
@@ -193,7 +195,7 @@ func handleTranslatedSorting(db *gorm.DB, query *qapi.Query, langCode string,
 				if field == tf {
 					isTranslationField = true
 					jsonPath := fmt.Sprintf("$.\"%s\"", langCode)
-					db = db.Order(fmt.Sprintf("JSON_UNQUOTE(JSON_EXTRACT(%s, '%s')) %s",
+					db = db.Order(fmt.Sprintf("LOWER(JSON_UNQUOTE(JSON_EXTRACT(%s, '%s'))) %s",
 						field, jsonPath, sortDirection))
 					handled = true
 					break
@@ -207,12 +209,17 @@ func handleTranslatedSorting(db *gorm.DB, query *qapi.Query, langCode string,
 			}
 		}
 
-		// If not handled as a translation or JSON field, use standard ordering
+		// If not handled as a translation or JSON field, use standard ordering with case insensitive
 		if !handled {
-			db = db.Order(sortClause)
+			sortParts := strings.Split(sortClause, " ")
+			field := sortParts[0]
+			direction := "ASC"
+			if len(sortParts) > 1 {
+				direction = sortParts[1]
+			}
+			db = db.Order(fmt.Sprintf("LOWER(%s) %s", field, direction))
 		}
 	}
-
 	return db
 }
 
@@ -286,6 +293,7 @@ func handleTranslatedFilters(db *gorm.DB, query *qapi.Query, langCode string,
 			for _, multiLangField := range multiLangFields {
 				if v.Name == multiLangField {
 					jsonPath := fmt.Sprintf("$.\"%s\"", langCode)
+					// For translation fields, we typically use LIKE operations
 					db = db.Where("LOWER(JSON_UNQUOTE(JSON_EXTRACT("+v.Name+", ?))) LIKE LOWER(?)",
 						jsonPath, "%"+v.Value+"%")
 					handled = true
@@ -294,13 +302,149 @@ func handleTranslatedFilters(db *gorm.DB, query *qapi.Query, langCode string,
 			}
 		}
 
-		// Default handling for regular fields
+		// Default handling for regular fields with proper operation support
 		if !handled {
-			db = db.Where("LOWER("+v.Name+") LIKE LOWER(?)", "%"+v.Value+"%")
+			db = applyFilterOperation(db, v, entityType)
 		}
 	}
 
 	return db
+}
+
+// applyFilterOperation applies the correct SQL operation based on the filter operation type
+func applyFilterOperation(db *gorm.DB, filter qapi.Filter, entityType reflect.Type) *gorm.DB {
+	// Get field information for type checking
+	field, fieldFound := entityType.FieldByName(filter.Name)
+	isDateTimeField := false
+
+	if fieldFound {
+		fieldType := field.Type
+		// Handle pointer types
+		if fieldType.Kind() == reflect.Ptr {
+			fieldType = fieldType.Elem()
+		}
+		// Check if it's a time.Time field
+		isDateTimeField = fieldType.String() == "time.Time"
+	}
+
+	// Convert Unix timestamp to datetime format for date/time fields
+	value := filter.Value
+	if isDateTimeField && isUnixTimestamp(filter.Value) {
+		value = convertUnixTimestampToDatetime(filter.Value)
+	}
+
+	switch filter.Operation {
+	case qapi.EQ:
+		db = db.Where("`"+filter.Name+"` = ?", value)
+	case qapi.NEQ:
+		db = db.Where("`"+filter.Name+"` != ?", value)
+	case qapi.LT:
+		db = db.Where("`"+filter.Name+"` < ?", value)
+	case qapi.LTE:
+		db = db.Where("`"+filter.Name+"` <= ?", value)
+	case qapi.GT:
+		db = db.Where("`"+filter.Name+"` > ?", value)
+	case qapi.GTE:
+		db = db.Where("`"+filter.Name+"` >= ?", value)
+	case qapi.LK:
+		// LIKE operation - use LOWER for case-insensitive search
+		db = db.Where("LOWER(`"+filter.Name+"`) LIKE LOWER(?)", "%"+filter.Value+"%")
+	case qapi.IN:
+		// IN operation - split by | and use IN clause
+		values := strings.Split(filter.Value, "|")
+		if isDateTimeField {
+			// Convert all timestamp values for date fields
+			convertedValues := make([]string, len(values))
+			for i, v := range values {
+				if isUnixTimestamp(v) {
+					convertedValues[i] = convertUnixTimestampToDatetime(v)
+				} else {
+					convertedValues[i] = v
+				}
+			}
+			db = db.Where("`"+filter.Name+"` IN ?", convertedValues)
+		} else {
+			db = db.Where("`"+filter.Name+"` IN ?", values)
+		}
+	case qapi.IN_ALT:
+		// Alternative IN operation - split by | and use IN clause
+		values := strings.Split(filter.Value, "|")
+		if isDateTimeField {
+			// Convert all timestamp values for date fields
+			convertedValues := make([]string, len(values))
+			for i, v := range values {
+				if isUnixTimestamp(v) {
+					convertedValues[i] = convertUnixTimestampToDatetime(v)
+				} else {
+					convertedValues[i] = v
+				}
+			}
+			db = db.Where("`"+filter.Name+"` IN ?", convertedValues)
+		} else {
+			db = db.Where("`"+filter.Name+"` IN ?", values)
+		}
+	default:
+		// Default behavior: for date/time fields use exact match, for others use LIKE
+		if isDateTimeField {
+			db = db.Where("`"+filter.Name+"` = ?", value)
+		} else {
+			db = db.Where("LOWER(`"+filter.Name+"`) LIKE LOWER(?)", "%"+filter.Value+"%")
+		}
+	}
+
+	return db
+}
+
+// isUnixTimestamp checks if a string represents a Unix timestamp (milliseconds)
+func isUnixTimestamp(value string) bool {
+	// Check if the value is a numeric string with 13 digits (Unix timestamp in milliseconds)
+	if len(value) == 13 {
+		for _, char := range value {
+			if char < '0' || char > '9' {
+				return false
+			}
+		}
+		return true
+	}
+	// Also check for 10 digits (Unix timestamp in seconds)
+	if len(value) == 10 {
+		for _, char := range value {
+			if char < '0' || char > '9' {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// convertUnixTimestampToDatetime converts Unix timestamp to MySQL datetime format
+func convertUnixTimestampToDatetime(timestamp string) string {
+	// Parse the timestamp
+	var unixTime int64
+	var err error
+
+	if len(timestamp) == 13 {
+		// Milliseconds timestamp
+		unixTime, err = strconv.ParseInt(timestamp, 10, 64)
+		if err != nil {
+			return timestamp // Return original if parsing fails
+		}
+		// Convert milliseconds to seconds
+		unixTime = unixTime / 1000
+	} else if len(timestamp) == 10 {
+		// Seconds timestamp
+		unixTime, err = strconv.ParseInt(timestamp, 10, 64)
+		if err != nil {
+			return timestamp // Return original if parsing fails
+		}
+	} else {
+		return timestamp // Return original if not a valid timestamp
+	}
+
+	// Convert to time.Time and format as MySQL datetime
+	t := time.Unix(unixTime, 0).UTC()
+	return t.Format("2006-01-02 15:04:05")
 }
 
 // handlePolymorphicTranslationFilter handles filtering for polymorphic relationships
@@ -722,9 +866,118 @@ func handleTranslatedOneToManyFilter(db *gorm.DB, query *qapi.Query, entityType 
 				relatedType := getRelatedModelType(field.Type)
 				relatedTable := relatedType.Name()
 
+				// Check if the field is a date/time field in the related model
+				relatedField, relatedFieldFound := relatedType.FieldByName(fieldName)
+				isDateTimeField := false
+				if relatedFieldFound {
+					fieldType := relatedField.Type
+					if fieldType.Kind() == reflect.Ptr {
+						fieldType = fieldType.Elem()
+					}
+					isDateTimeField = fieldType.String() == "time.Time"
+				}
+
+				// Convert Unix timestamp to datetime format for date/time fields
+				value := v.Value
+				if isDateTimeField && isUnixTimestamp(v.Value) {
+					value = convertUnixTimestampToDatetime(v.Value)
+				}
+
+				// Build the appropriate WHERE condition based on the operation
+				var whereCondition string
+				switch v.Operation {
+				case qapi.EQ:
+					whereCondition = fmt.Sprintf("`%s` = ?", fieldName)
+				case qapi.NEQ:
+					whereCondition = fmt.Sprintf("`%s` != ?", fieldName)
+				case qapi.LT:
+					whereCondition = fmt.Sprintf("`%s` < ?", fieldName)
+				case qapi.LTE:
+					whereCondition = fmt.Sprintf("`%s` <= ?", fieldName)
+				case qapi.GT:
+					whereCondition = fmt.Sprintf("`%s` > ?", fieldName)
+				case qapi.GTE:
+					whereCondition = fmt.Sprintf("`%s` >= ?", fieldName)
+				case qapi.LK:
+					whereCondition = fmt.Sprintf("LOWER(`%s`) LIKE LOWER(?)", fieldName)
+					value = "%" + value + "%"
+				case qapi.IN:
+					values := strings.Split(v.Value, "|")
+					if isDateTimeField {
+						// Convert all timestamp values for date fields
+						convertedValues := make([]interface{}, len(values))
+						for i, val := range values {
+							if isUnixTimestamp(val) {
+								convertedValues[i] = convertUnixTimestampToDatetime(val)
+							} else {
+								convertedValues[i] = val
+							}
+						}
+						placeholders := strings.Repeat("?,", len(values))
+						placeholders = placeholders[:len(placeholders)-1] // Remove trailing comma
+						whereCondition = fmt.Sprintf("`%s` IN (%s)", fieldName, placeholders)
+						// For IN operations, we need to handle multiple values differently
+						subquery := fmt.Sprintf("ID IN (SELECT `%sID` FROM `%s` WHERE %s)",
+							entityType.Name(), relatedTable, whereCondition)
+						db = db.Where(subquery, convertedValues...)
+						continue
+					} else {
+						placeholders := strings.Repeat("?,", len(values))
+						placeholders = placeholders[:len(placeholders)-1] // Remove trailing comma
+						whereCondition = fmt.Sprintf("`%s` IN (%s)", fieldName, placeholders)
+						// For IN operations, we need to handle multiple values differently
+						subquery := fmt.Sprintf("ID IN (SELECT `%sID` FROM `%s` WHERE %s)",
+							entityType.Name(), relatedTable, whereCondition)
+						interfaceValues := make([]interface{}, len(values))
+						for i, val := range values {
+							interfaceValues[i] = val
+						}
+						db = db.Where(subquery, interfaceValues...)
+						continue
+					}
+				case qapi.IN_ALT:
+					values := strings.Split(v.Value, "|")
+					if isDateTimeField {
+						// Convert all timestamp values for date fields
+						convertedValues := make([]interface{}, len(values))
+						for i, val := range values {
+							if isUnixTimestamp(val) {
+								convertedValues[i] = convertUnixTimestampToDatetime(val)
+							} else {
+								convertedValues[i] = val
+							}
+						}
+						placeholders := strings.Repeat("?,", len(values))
+						placeholders = placeholders[:len(placeholders)-1] // Remove trailing comma
+						whereCondition = fmt.Sprintf("`%s` IN (%s)", fieldName, placeholders)
+						// For IN operations, we need to handle multiple values differently
+						subquery := fmt.Sprintf("ID IN (SELECT `%sID` FROM `%s` WHERE %s)",
+							entityType.Name(), relatedTable, whereCondition)
+						db = db.Where(subquery, convertedValues...)
+						continue
+					} else {
+						placeholders := strings.Repeat("?,", len(values))
+						placeholders = placeholders[:len(placeholders)-1] // Remove trailing comma
+						whereCondition = fmt.Sprintf("`%s` IN (%s)", fieldName, placeholders)
+						// For IN operations, we need to handle multiple values differently
+						subquery := fmt.Sprintf("ID IN (SELECT `%sID` FROM `%s` WHERE %s)",
+							entityType.Name(), relatedTable, whereCondition)
+						interfaceValues := make([]interface{}, len(values))
+						for i, val := range values {
+							interfaceValues[i] = val
+						}
+						db = db.Where(subquery, interfaceValues...)
+						continue
+					}
+				default:
+					// Default to exact match
+					whereCondition = fmt.Sprintf("`%s` = ?", fieldName)
+				}
+
 				// Build a subquery that finds parent IDs where children match the filter
-				db = db.Where(fmt.Sprintf("ID IN (SELECT %sID FROM %s WHERE %s = ?)",
-					entityType.Name(), relatedTable, fieldName), v.Value)
+				subquery := fmt.Sprintf("ID IN (SELECT `%sID` FROM `%s` WHERE %s)",
+					entityType.Name(), relatedTable, whereCondition)
+				db = db.Where(subquery, value)
 			}
 		}
 	}
