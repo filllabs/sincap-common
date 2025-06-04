@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/filllabs/sincap-common/middlewares/qapi"
@@ -12,36 +11,72 @@ import (
 
 var timeKind = reflect.TypeOf(time.Time{}).Kind()
 
-// GetMany2Many tries to read the table name of the gorm tag "many2many" from the given field.
-func GetMany2Many(f *reflect.StructField) (string, bool) {
-	// get gorm tag
-	if tag, ok := f.Tag.Lookup("gorm"); ok {
-		props := strings.Split(tag, ";")
-		// find many2many info
-		for _, prop := range props {
-			if strings.HasPrefix(prop, "many2many:") {
-				return strings.TrimPrefix(prop, "many2many:"), true
-			}
-		}
-	}
-	return "", false
+// ValueConverter interface for types that can convert themselves
+type ValueConverter interface {
+	ConvertFromString(value string) (interface{}, error)
 }
 
-// GetPolymorphic tries to read the table name of the gorm tag "polymorphic" from the given field.
-func GetPolymorphic(f *reflect.StructField) (string, bool) {
-	// get gorm tag
-	if tag, ok := f.Tag.Lookup("gorm"); ok {
-		props := strings.Split(tag, ";")
-		// find polymorphic info
-		for _, prop := range props {
-			if strings.HasPrefix(prop, "polymorphic:") {
-				return strings.TrimPrefix(prop, "polymorphic:"), true
-			}
-		}
+// ConvertValueOptimized converts values with reduced reflection usage
+func ConvertValueOptimized(filter qapi.Filter, values []interface{}, value interface{}) ([]interface{}, error) {
+	if value == "NULL" || value == "null" || value == "nil" {
+		// Do not add anything
+		return values, nil
 	}
-	return "", false
+
+	// Try string conversion first (most common case)
+	if strValue, ok := value.(string); ok {
+		return convertStringValue(values, strValue)
+	}
+
+	// For non-string values, add directly
+	values = append(values, value)
+	return values, nil
 }
 
+// convertStringValue handles string to type conversion without reflection
+func convertStringValue(values []interface{}, value string) ([]interface{}, error) {
+	// Try common type conversions without reflection
+
+	// Integer types
+	if i, err := strconv.Atoi(value); err == nil {
+		// Could be any integer type, but int is most common
+		values = append(values, i)
+		return values, nil
+	}
+
+	// Unsigned integer types
+	if i, err := strconv.ParseUint(value, 10, 64); err == nil {
+		values = append(values, i)
+		return values, nil
+	}
+
+	// Float types
+	if f, err := strconv.ParseFloat(value, 64); err == nil {
+		values = append(values, f)
+		return values, nil
+	}
+
+	// Boolean
+	if value == "true" || value == "false" {
+		values = append(values, value == "true")
+		return values, nil
+	}
+
+	// Time (Unix timestamp in milliseconds)
+	if i, err := strconv.ParseInt(value, 10, 64); err == nil {
+		// Assume it's a timestamp if it's a large number
+		if i > 1000000000 { // Rough check for timestamp
+			values = append(values, time.Unix(0, i*int64(time.Millisecond)))
+			return values, nil
+		}
+	}
+
+	// Default to string
+	values = append(values, value)
+	return values, nil
+}
+
+// ConvertValue is the original reflection-based function (kept for backward compatibility)
 func ConvertValue(filter qapi.Filter, typ reflect.Type, kind reflect.Kind, values []interface{}, value interface{}) ([]interface{}, error) {
 	if value == "NULL" || value == "null" || value == "nil" {
 		// Do not add anything
@@ -83,4 +118,29 @@ func ConvertValue(filter qapi.Filter, typ reflect.Type, kind reflect.Kind, value
 		return nil, fmt.Errorf("field type not supported for QApi %s : %s", typ.Name(), filter.Name)
 	}
 	return values, nil
+}
+
+// ConvertValueByType converts a value based on a target type without reflection
+func ConvertValueByType(value string, targetType string) (interface{}, error) {
+	switch targetType {
+	case "string":
+		return value, nil
+	case "int", "int32", "int64":
+		return strconv.Atoi(value)
+	case "uint", "uint32", "uint64":
+		i, err := strconv.ParseUint(value, 10, 64)
+		return uint64(i), err
+	case "float32", "float64":
+		return strconv.ParseFloat(value, 64)
+	case "bool":
+		return value == "true", nil
+	case "time":
+		i, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return time.Unix(0, i*int64(time.Millisecond)), nil
+	default:
+		return value, nil // Default to string
+	}
 }

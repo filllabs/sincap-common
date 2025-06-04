@@ -41,7 +41,6 @@ func getQapiFields(structType reflect.Type) *[]pair {
 	return fields.(*[]pair)
 }
 func getQapiQPrefix(f *reflect.StructField) (string, bool) {
-	// get gorm tag
 	if tag, ok := f.Tag.Lookup("qapi"); ok {
 		props := strings.Split(tag, ";")
 		// find qaip q info

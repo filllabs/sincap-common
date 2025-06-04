@@ -6,40 +6,45 @@ import (
 )
 
 type Sample struct {
-	ID       uint
-	Name     string `qapi:"q:%*%;"`
-	InnerFID uint
+	ID       uint    `db:"ID"`
+	Name     string  `qapi:"q:%*%;" db:"Name"`
+	InnerFID uint    `db:"InnerFID"`
 	InnerF   *Inner1 `qapi:"q:*"`
 }
 
 type SamplePoly struct {
-	ID     uint
-	Name   string  `qapi:"q:*"`
-	InnerF *Inner1 `gorm:"polymorphic:Holder;" qapi:"q:*"`
+	ID       uint    `db:"ID"`
+	Name     string  `qapi:"q:*" db:"Name"`
+	InnerFID uint    `db:"InnerFID"`
+	InnerF   *Inner1 `qapi:"q:*"` // Polymorphic relationship - configured via JoinRegistry
 }
 
 type SampleM2M struct {
-	ID      uint
-	Name    string
-	Inner2s []*Inner2 `gorm:"many2many:SampleM2MInner2"  qapi:"q:*"`
+	ID        uint      `db:"ID"`
+	Name      string    `db:"Name"`
+	Inner2sID uint      `db:"Inner2sID"`
+	Inner2s   []*Inner2 `qapi:"q:*"` // Many-to-many relationship - configured via JoinRegistry
 }
+
 type Inner1 struct {
-	ID uint
-	// util.PolymorphicModel
-	Name      string `qapi:"q:%*;"`
-	Inner2FID uint
+	ID        uint   `db:"ID"`
+	Name      string `qapi:"q:%*;" db:"Name"`
+	Inner2FID uint   `db:"Inner2FID"`
 	Inner2F   *Inner2
-	Inner2P   *Inner2 `gorm:"polymorphic:Holder;" qapi:"q:*;"`
+	Inner2PID uint    `db:"Inner2PID"`
+	Inner2P   *Inner2 `qapi:"q:*;"` // Polymorphic relationship - configured via JoinRegistry
 }
+
 type Inner2 struct {
-	ID   uint
-	Name string `qapi:"q:*%;"`
-	Age  uint
+	ID   uint   `db:"ID"`
+	Name string `qapi:"q:*%;" db:"Name"`
+	Age  uint   `db:"Age"`
 }
+
 type SampleName struct {
-	ID   uint
-	Name string `qapi:"q:*%;"`
-	Age  uint
+	ID   uint   `db:"ID"`
+	Name string `qapi:"q:*%;" db:"Name"`
+	Age  uint   `db:"Age"`
 }
 
 func (SampleName) TableName() string {

@@ -47,7 +47,6 @@ func Configure(dbConfs []Config) {
 func ConfigureTestDB(t *testing.T) (*sqlx.DB, *mocket.MockCatcher) {
 	mocket.Catcher.Register()
 	mocket.Catcher.Logging = true
-	// GORM
 	conn, err := sqlx.Connect(mocket.DriverName, "connection_string") // Can be any connection string
 	if err != nil {
 		t.Fatalf("Failed to connect to mock DB: %v", err)

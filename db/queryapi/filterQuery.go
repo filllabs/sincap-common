@@ -10,15 +10,16 @@ import (
 	"github.com/filllabs/sincap-common/reflection"
 )
 
-func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (string, []interface{}, error) {
+// filter2SqlWithJoins generates SQL with support for joins
+func filter2SqlWithJoins(filters []qapi.Filter, typ reflect.Type, tableName string, options *QueryOptions) (string, []interface{}, []string, error) {
 	var where []string
 	var values []interface{}
+	var relationshipPaths []string
 	var targetField *reflect.StructField
 
 	// Convert all filters to a where condition with AND
 	for _, filter := range filters {
 		var condition []string
-		// var innerFieldFound = false
 
 		// Get field name with split (it will make inner field queries possible)
 		fieldNames := strings.Split(filter.Name, ".")
@@ -28,7 +29,7 @@ func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (stri
 			// If it is json than handle different
 			field, isFieldFound := typ.FieldByName(fieldNames[0])
 			if !isFieldFound {
-				return "", nil, fmt.Errorf("Can't find struct: %s field: %s", tableName, filter.Name)
+				return "", nil, nil, fmt.Errorf("Can't find struct: %s field: %s", tableName, filter.Name)
 			}
 
 			dp := reflection.DepointerField(field.Type)
@@ -37,18 +38,21 @@ func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (stri
 				condition = getCondition(condition, tableName+"."+fieldNames[0]+"->"+"'$."+fieldNames[1]+"'", filter.Value, qapi.LK)
 				values = append(values, filter.Value)
 				targetField = &field
-			} else if cond, f, err := generateFilterQuery(fieldNames, 1, typ, tableName, filter); err == nil {
+			} else if cond, f, relPath, err := generateFilterQueryWithJoins(fieldNames, 1, typ, tableName, filter, options); err == nil {
 				condition = append(condition, cond)
 				targetField = f
+				if relPath != "" {
+					relationshipPaths = append(relationshipPaths, relPath)
+				}
 			} else {
-				return "", values, err
+				return "", values, relationshipPaths, err
 			}
 
 		} else {
 			condition = getCondition(condition, safeMySQLNaming(tableName)+"."+safeMySQLNaming(filter.Name), filter.Value, filter.Operation)
 			field, isFieldFound := typ.FieldByName(filter.Name)
 			if !isFieldFound {
-				return "", values, fmt.Errorf("Can't find field for %s", filter.Name)
+				return "", values, relationshipPaths, fmt.Errorf("Can't find field for %s", filter.Name)
 			}
 			targetField = &field
 
@@ -62,7 +66,7 @@ func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (stri
 				var err error
 				values, err = util.ConvertValue(filter, typ, kind, values, inVals[i])
 				if err != nil {
-					return "", values, err
+					return "", values, relationshipPaths, err
 				}
 			}
 		case qapi.IN_ALT:
@@ -71,39 +75,44 @@ func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (stri
 				var err error
 				values, err = util.ConvertValue(filter, typ, kind, values, inVals[i])
 				if err != nil {
-					return "", values, err
+					return "", values, relationshipPaths, err
 				}
 			}
 		default:
 			var err error
 			values, err = util.ConvertValue(filter, typ, kind, values, filter.Value)
 			if err != nil {
-				return "", values, err
+				return "", values, relationshipPaths, err
 			}
 		}
 
 	}
-	return strings.Join(where, " AND "), values, nil
+	return strings.Join(where, " AND "), values, relationshipPaths, nil
 }
 
-func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, tableName string, filter qapi.Filter) (string, *reflect.StructField, error) {
+// filter2Sql generates SQL without join support (backward compatibility)
+func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (string, []interface{}, error) {
+	where, values, _, err := filter2SqlWithJoins(filters, typ, tableName, nil)
+	return where, values, err
+}
 
+func generateFilterQueryWithJoins(fieldNames []string, i int, structType reflect.Type, tableName string, filter qapi.Filter, options *QueryOptions) (string, *reflect.StructField, string, error) {
 	var condition []string
 
 	fieldName := fieldNames[i-1]
 	innerFieldName := fieldNames[i]
 
 	if structType.Kind() != reflect.Struct {
-		return "", nil, fmt.Errorf("%s is not struct", structType.Name())
+		return "", nil, "", fmt.Errorf("%s is not struct", structType.Name())
 	}
 	field, isFieldFound := structType.FieldByName(fieldName)
 	if !isFieldFound {
-		return "", nil, fmt.Errorf("Can't find struct: %s field: %s", structType.Name(), filter.Name)
+		return "", nil, "", fmt.Errorf("Can't find struct: %s field: %s", structType.Name(), filter.Name)
 	}
 	ft := reflection.ExtractRealTypeField(field.Type)
 
 	if ft.Kind() != reflect.Struct && ft.Kind() != reflect.Slice {
-		return "", nil, fmt.Errorf("%s is not struct field in %s", filter.Name, structType.Name())
+		return "", nil, "", fmt.Errorf("%s is not struct field in %s", filter.Name, structType.Name())
 	}
 	//TODO:check  maybe noo need previous extect handles it
 	if ft.Kind() == reflect.Slice {
@@ -111,49 +120,49 @@ func generateFilterQuery(fieldNames []string, i int, structType reflect.Type, ta
 	}
 	innerField, isInnerFieldFound := reflection.ExtractRealTypeField(ft).FieldByName(innerFieldName)
 	if !isInnerFieldFound {
-		return "", nil, fmt.Errorf("Can't find struct: %s inner field: %s", reflection.ExtractRealTypeField(ft).Name(), filter.Name)
+		return "", nil, "", fmt.Errorf("Can't find struct: %s inner field: %s", reflection.ExtractRealTypeField(ft).Name(), filter.Name)
 	}
 	innerCond := ""
 	var targetField *reflect.StructField
 	var innerErr error
+	var relationshipPath string
+
 	// first dive into inner fields
 	if i < len(fieldNames)-1 {
-		// ftType, ftTableName := getTableName(entity)
-		innerCond, targetField, innerErr = generateFilterQuery(fieldNames, i+1, ft, reflection.ExtractRealTypeField(field.Type).Name(), filter)
+		innerCond, targetField, relationshipPath, innerErr = generateFilterQueryWithJoins(fieldNames, i+1, ft, reflection.ExtractRealTypeField(field.Type).Name(), filter, options)
 		if innerErr != nil {
-			return "", targetField, innerErr
+			return "", targetField, relationshipPath, innerErr
 		}
 	} else {
 		targetField = &innerField
 	}
+
 	table := reflection.ExtractRealTypeField(ft).Name()
-	if prefix, isPoly := util.GetPolymorphic(&field); isPoly {
-		polyID := prefix + "ID"
-		polyType := prefix + "Type"
-		outerTable := tableName
-		condition = append(condition, column(outerTable, "ID"), "IN (", "SELECT", column(table, polyID), "FROM", safeMySQLNaming(table), "WHERE (")
-		if len(innerCond) > 0 {
-			condition = append(condition, innerCond)
-		} else {
-			condition = getCondition(condition, column(table, innerFieldName), filter.Value, filter.Operation)
+
+	// Try to use join registry if available
+	if options != nil && options.JoinRegistry != nil {
+		fieldPath := strings.Join(fieldNames[:i], ".")
+		if config, exists := options.JoinRegistry.Get(fieldPath); exists {
+			// Use the configured table name and generate appropriate condition
+			if len(innerCond) > 0 {
+				condition = append(condition, innerCond)
+			} else {
+				condition = getCondition(condition, column(config.Table, innerFieldName), filter.Value, filter.Operation)
+			}
+			return strings.Join(condition, " "), targetField, fieldPath, nil
 		}
-		condition = append(condition, "AND", column(table, polyID), "=", column(outerTable, "ID"), "AND", column(table, polyType), "=", "'"+outerTable+"'", ")", ")")
-	} else if m2mTable, isM2M := util.GetMany2Many(&field); isM2M {
-		srcRef := tableName + "ID"
-		destRef := table + "ID"
-		condition = append(condition, safeMySQLNaming(tableName)+".ID", "IN (", "SELECT", safeMySQLNaming(srcRef), "FROM", safeMySQLNaming(m2mTable), "WHERE (", safeMySQLNaming(destRef), "IN (", "SELECT ID FROM", safeMySQLNaming(table), "WHERE (")
-		condition = getCondition(condition, safeMySQLNaming(innerFieldName), filter.Value, filter.Operation)
-		condition = append(condition, ")", ")", ")", ")")
-	} else {
-		condition = append(condition, column(tableName, fieldName+"ID"), "IN (", "SELECT "+column(table, "ID"), " FROM", safeMySQLNaming(table), "WHERE (")
-		if len(innerCond) > 0 {
-			condition = append(condition, innerCond)
-		} else {
-			condition = getCondition(condition, column(table, innerFieldName), filter.Value, filter.Operation)
-		}
-		condition = append(condition, ")", ")")
 	}
-	return strings.Join(condition, " "), targetField, nil
+
+	// Fallback to subquery approach (no joins)
+	condition = append(condition, column(tableName, fieldName+"ID"), "IN (", "SELECT "+column(table, "ID"), " FROM", safeMySQLNaming(table), "WHERE (")
+	if len(innerCond) > 0 {
+		condition = append(condition, innerCond)
+	} else {
+		condition = getCondition(condition, column(table, innerFieldName), filter.Value, filter.Operation)
+	}
+	condition = append(condition, ")", ")")
+
+	return strings.Join(condition, " "), targetField, "", nil
 }
 
 func getCondition(condition []string, field string, value interface{}, operation qapi.Operation) []string {

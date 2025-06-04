@@ -33,9 +33,11 @@ func AutoMigrate(command string, dbconfig db.Config, DB *sqlx.DB, models ...inte
 
 // GetMigrationTableNames extracts table names from models for migration purposes
 // This can be used to help generate migration files manually
+//
+// Note: This function no longer automatically detects relationship tables since GORM tags
+// are no longer used. You'll need to manually include relationship table names in your migrations.
 func GetMigrationTableNames(models ...interface{}) []string {
 	var tables []string
-	var relationTables []string
 
 	for _, model := range models {
 		typ := reflection.ExtractRealTypeField(reflect.TypeOf(model))
@@ -47,17 +49,7 @@ func GetMigrationTableNames(models ...interface{}) []string {
 		} else {
 			tables = append(tables, typ.Name())
 		}
-
-		// Add relation tables
-		for i := 0; i < typ.NumField(); i++ {
-			f := typ.Field(i)
-			if name, isM2M := GetMany2Many(&f); isM2M {
-				relationTables = append(relationTables, name)
-			}
-		}
 	}
 
-	// Combine main tables and relation tables
-	allTables := append(tables, relationTables...)
-	return allTables
+	return tables
 }

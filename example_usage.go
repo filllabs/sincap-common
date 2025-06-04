@@ -10,22 +10,58 @@ import (
 	"github.com/filllabs/sincap-common/middlewares/qapi"
 )
 
-// Example model
+// Example model with optimized interfaces (reduces reflection usage)
 type User struct {
-	ID    uint   `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Age   int    `json:"age"`
+	ID    uint   `json:"id" db:"ID"`
+	Name  string `json:"name" db:"Name"`
+	Email string `json:"email" db:"Email"`
+	Age   int    `json:"age" db:"Age"`
 }
 
-// TableName returns the table name for the User model
+// TableName implements mysql.TableNamer interface (reduces reflection)
 func (User) TableName() string {
-	return "users"
+	return "Users"
+}
+
+// GetID implements mysql.IDGetter interface (reduces reflection)
+func (u User) GetID() interface{} {
+	return u.ID
+}
+
+// SetID implements mysql.IDSetter interface (reduces reflection)
+func (u *User) SetID(id interface{}) error {
+	if idVal, ok := id.(uint64); ok {
+		u.ID = uint(idVal)
+		return nil
+	}
+	return fmt.Errorf("invalid ID type")
+}
+
+// GetFieldMap implements mysql.FieldMapper interface (eliminates reflection for CRUD)
+func (u User) GetFieldMap() map[string]interface{} {
+	return map[string]interface{}{
+		"ID":    u.ID,
+		"Name":  u.Name,
+		"Email": u.Email,
+		"Age":   u.Age,
+	}
+}
+
+// Example model without interfaces (uses reflection fallback)
+type Product struct {
+	ID    uint    `json:"id" db:"ID"`
+	Name  string  `json:"name" db:"Name"`
+	Price float64 `json:"price" db:"Price"`
+}
+
+// TableName method (will be called via reflection)
+func (Product) TableName() string {
+	return "Products"
 }
 
 func main() {
-	// Example of how to use the new sqlx-based system
-	fmt.Println("=== Sincap-Common sqlx Migration Example ===")
+	// Example of how to use the new sqlx-based system with reduced reflection
+	fmt.Println("=== Sincap-Common sqlx Migration Example (Optimized) ===")
 
 	// 1. Database Configuration (you would normally do this in your app initialization)
 	configs := []db.Config{
@@ -41,110 +77,172 @@ func main() {
 	// Get database connection
 	database := db.DB()
 
-	// 2. Example: Create a user
-	fmt.Println("\n--- Create Example ---")
+	// 2. Example: Create a user (OPTIMIZED - no reflection)
+	fmt.Println("\n--- Create Example (Optimized) ---")
 	user := &User{
 		Name:  "John Doe",
 		Email: "john@example.com",
 		Age:   30,
 	}
 
+	// This will use the FieldMapper interface - NO REFLECTION!
 	err := mysql.Create(database, user)
 	if err != nil {
 		log.Printf("Create error: %v", err)
 	} else {
-		fmt.Printf("Created user with ID: %d\n", user.ID)
+		fmt.Printf("Created user with ID: %d (no reflection used!)\n", user.ID)
 	}
 
-	// 3. Example: Read a user
-	fmt.Println("\n--- Read Example ---")
+	// 3. Example: Create using field map directly (NO REFLECTION)
+	fmt.Println("\n--- Create with Field Map (Zero Reflection) ---")
+	userFieldMap := map[string]interface{}{
+		"Name":  "Jane Smith",
+		"Email": "jane@example.com",
+		"Age":   25,
+	}
+
+	var newUser User
+	err = mysql.CreateWithFieldMap(database, "Users", userFieldMap, &newUser)
+	if err != nil {
+		log.Printf("CreateWithFieldMap error: %v", err)
+	} else {
+		fmt.Printf("Created user with field map, ID: %d (zero reflection!)\n", newUser.ID)
+	}
+
+	// 4. Example: Read a user (OPTIMIZED - minimal reflection)
+	fmt.Println("\n--- Read Example (Optimized) ---")
 	var readUser User
+	// This will use the TableName() interface method - minimal reflection!
 	err = mysql.Read(database, &readUser, 1)
 	if err != nil {
 		log.Printf("Read error: %v", err)
 	} else {
-		fmt.Printf("Read user: %+v\n", readUser)
+		fmt.Printf("Read user: %+v (minimal reflection used)\n", readUser)
 	}
 
-	// 4. Example: Update a user
-	fmt.Println("\n--- Update Example ---")
+	// 5. Example: Read by ID directly (NO REFLECTION)
+	fmt.Println("\n--- Read by ID (Zero Reflection) ---")
+	var directReadUser User
+	err = mysql.ReadByID(database, &directReadUser, "Users", 1)
+	if err != nil {
+		log.Printf("ReadByID error: %v", err)
+	} else {
+		fmt.Printf("Read user directly: %+v (zero reflection!)\n", directReadUser)
+	}
+
+	// 6. Example: Update a user (OPTIMIZED - no reflection)
+	fmt.Println("\n--- Update Example (Optimized) ---")
 	readUser.Age = 31
+	// This will use the FieldMapper and IDGetter interfaces - NO REFLECTION!
 	err = mysql.Update(database, &readUser)
 	if err != nil {
 		log.Printf("Update error: %v", err)
 	} else {
-		fmt.Println("User updated successfully")
+		fmt.Println("User updated successfully (no reflection used!)")
 	}
 
-	// 5. Example: Partial update
-	fmt.Println("\n--- Partial Update Example ---")
-	err = mysql.Update(database, &User{ID: 1}, map[string]any{
-		"email": "john.doe@example.com",
+	// 7. Example: Partial update with field map (NO REFLECTION)
+	fmt.Println("\n--- Partial Update with Field Map (Zero Reflection) ---")
+	err = mysql.UpdateWithFieldMap(database, "Users", 1, map[string]interface{}{
+		"Email": "john.doe@example.com",
+		"Age":   32,
 	})
 	if err != nil {
-		log.Printf("Partial update error: %v", err)
+		log.Printf("UpdateWithFieldMap error: %v", err)
 	} else {
-		fmt.Println("User email updated successfully")
+		fmt.Println("User updated with field map (zero reflection!)")
 	}
 
-	// 6. Example: List with query API
-	fmt.Println("\n--- List with Query API Example ---")
+	// 8. Example: Delete a user (OPTIMIZED - no reflection)
+	fmt.Println("\n--- Delete Example (Optimized) ---")
+	// This will use the TableName() and GetID() interfaces - NO REFLECTION!
+	err = mysql.Delete(database, &readUser)
+	if err != nil {
+		log.Printf("Delete error: %v", err)
+	} else {
+		fmt.Println("User deleted successfully (no reflection used!)")
+	}
+
+	// 9. Example: Delete by ID directly (NO REFLECTION)
+	fmt.Println("\n--- Delete by ID (Zero Reflection) ---")
+	err = mysql.DeleteByID(database, "Users", 2)
+	if err != nil {
+		log.Printf("DeleteByID error: %v", err)
+	} else {
+		fmt.Println("User deleted by ID (zero reflection!)")
+	}
+
+	// 10. Example: Comparison with reflection-based model
+	fmt.Println("\n--- Comparison: Reflection-based Model ---")
+	product := &Product{
+		Name:  "Laptop",
+		Price: 999.99,
+	}
+
+	// This will fall back to reflection since Product doesn't implement the interfaces
+	err = mysql.Create(database, product)
+	if err != nil {
+		log.Printf("Create product error: %v", err)
+	} else {
+		fmt.Printf("Created product with ID: %d (reflection used as fallback)\n", product.ID)
+	}
+
+	// 11. Example: Query API with optimized table name resolution
+	fmt.Println("\n--- Query API Example (Optimized) ---")
+	var users []User
 	query := &qapi.Query{
+		Filter: []qapi.Filter{
+			{Name: "Age", Value: "25", Operation: qapi.GT},
+		},
+		Sort:   []string{"Name ASC"},
 		Limit:  10,
 		Offset: 0,
-		Sort:   []string{"name ASC"},
-		Filter: []qapi.Filter{
-			{
-				Name:      "age",
-				Operation: qapi.GT,
-				Value:     "25",
-			},
-		},
 	}
 
-	var users []User
 	count, err := mysql.List(database, &users, query)
 	if err != nil {
 		log.Printf("List error: %v", err)
 	} else {
-		fmt.Printf("Found %d users: %+v\n", count, users)
+		fmt.Printf("Found %d users (table name resolved via interface)\n", count)
 	}
 
-	// 7. Example: Using GenerateSQL directly for custom queries
-	fmt.Println("\n--- Custom Query Example ---")
-	queryResult, err := queryapi.GenerateSQL(query, &users)
+	// 12. Example: Query API with joins (advanced)
+	fmt.Println("\n--- Query API with Joins Example ---")
+
+	// Set up join registry for relationship queries
+	joinRegistry := queryapi.NewJoinRegistry()
+	joinRegistry.Register("Profile", queryapi.JoinConfig{
+		Type:       queryapi.OneToOne,
+		Table:      "Profiles",
+		LocalKey:   "ID",
+		ForeignKey: "UserID",
+	})
+
+	// Complex query with relationships
+	complexQuery := &qapi.Query{
+		Filter: []qapi.Filter{
+			{Name: "Name", Value: "John", Operation: qapi.LK},
+			{Name: "Profile.Bio", Value: "developer", Operation: qapi.LK},
+		},
+		Sort:  []string{"Name ASC"},
+		Limit: 20,
+	}
+
+	options := &queryapi.QueryOptions{
+		JoinRegistry: joinRegistry,
+	}
+
+	result, err := queryapi.GenerateSQLWithOptions(complexQuery, User{}, options)
 	if err != nil {
-		log.Printf("GenerateSQL error: %v", err)
+		log.Printf("GenerateSQLWithOptions error: %v", err)
 	} else {
-		fmt.Printf("Generated SQL: %s\n", queryResult.Query)
-		fmt.Printf("Parameters: %+v\n", queryResult.Args)
-		fmt.Printf("Count SQL: %s\n", queryResult.CountQuery)
+		fmt.Printf("Generated optimized query: %s\n", result.Query)
+		fmt.Printf("Query args: %v\n", result.Args)
 	}
 
-	// 8. Example: Delete a user
-	fmt.Println("\n--- Delete Example ---")
-	err = mysql.Delete(database, &User{ID: 1})
-	if err != nil {
-		log.Printf("Delete error: %v", err)
-	} else {
-		fmt.Println("User deleted successfully")
-	}
-
-	// 9. Example: Bulk delete
-	fmt.Println("\n--- Bulk Delete Example ---")
-	err = mysql.DeleteAll(database, &User{}, 2, 3, 4)
-	if err != nil {
-		log.Printf("Bulk delete error: %v", err)
-	} else {
-		fmt.Println("Users deleted successfully")
-	}
-
-	fmt.Println("\n=== Migration Complete! ===")
-	fmt.Println("Key Changes:")
-	fmt.Println("1. GORM replaced with sqlx")
-	fmt.Println("2. Manual SQL query building")
-	fmt.Println("3. No automatic relationships (must be handled manually)")
-	fmt.Println("4. No soft deletes (must be implemented manually)")
-	fmt.Println("5. Use golang-migrate or goose for schema migrations")
-	fmt.Println("6. GenerateSQL() returns SQL strings instead of GORM objects")
+	fmt.Println("\n=== Performance Benefits ===")
+	fmt.Println("✅ User model: Uses interfaces - NO reflection for CRUD operations")
+	fmt.Println("✅ Direct functions: CreateWithFieldMap, ReadByID, etc. - ZERO reflection")
+	fmt.Println("⚠️  Product model: Falls back to reflection (still works)")
+	fmt.Println("🚀 Result: Significantly faster CRUD operations for optimized models")
 }

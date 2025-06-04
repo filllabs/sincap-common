@@ -14,6 +14,11 @@ import (
 
 var jsonType = reflect.TypeOf(types.JSON{})
 
+// TableNamer interface for models that can provide their table name
+type TableNamer interface {
+	TableName() string
+}
+
 // QueryResult holds the generated SQL query and parameters
 type QueryResult struct {
 	Query      string
@@ -22,14 +27,26 @@ type QueryResult struct {
 	CountArgs  []interface{}
 }
 
+// QueryOptions holds additional options for query generation
+type QueryOptions struct {
+	JoinRegistry *JoinRegistry // Optional join registry for relationship queries
+}
+
 // GenerateSQL generates SQL query and parameters from the given api Query
 func GenerateSQL(q *qapi.Query, entity interface{}) (*QueryResult, error) {
+	return GenerateSQLWithOptions(q, entity, nil)
+}
+
+// GenerateSQLWithOptions generates SQL query with additional options like join registry
+func GenerateSQLWithOptions(q *qapi.Query, entity interface{}, options *QueryOptions) (*QueryResult, error) {
 	typ, tableName := GetTableName(entity)
 
 	var whereClauses []string
 	var args []interface{}
 	var orderClauses []string
 	var selectFields string = "*"
+	var joinClauses []string
+	var joinWhereClauses []string
 
 	// Handle field selection
 	if len(q.Fields) > 0 {
@@ -61,9 +78,12 @@ func GenerateSQL(q *qapi.Query, entity interface{}) (*QueryResult, error) {
 		}
 	}
 
+	// Collect relationship field paths for joins
+	var relationshipPaths []string
+
 	// Handle filters
 	if len(q.Filter) > 0 {
-		where, values, err := filter2Sql(q.Filter, typ, tableName)
+		where, values, relPaths, err := filter2SqlWithJoins(q.Filter, typ, tableName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -71,11 +91,12 @@ func GenerateSQL(q *qapi.Query, entity interface{}) (*QueryResult, error) {
 			whereClauses = append(whereClauses, where)
 			args = append(args, values...)
 		}
+		relationshipPaths = append(relationshipPaths, relPaths...)
 	}
 
 	// Handle Q search
 	if len(q.Q) > 0 {
-		where, values, err := q2Sql(q.Q, typ, tableName)
+		where, values, relPaths, err := q2SqlWithJoins(q.Q, typ, tableName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -83,13 +104,43 @@ func GenerateSQL(q *qapi.Query, entity interface{}) (*QueryResult, error) {
 			whereClauses = append(whereClauses, fmt.Sprintf("(%s)", where))
 			args = append(args, values...)
 		}
+		relationshipPaths = append(relationshipPaths, relPaths...)
+	}
+
+	// Generate joins if we have a join registry and relationship paths
+	if options != nil && options.JoinRegistry != nil && len(relationshipPaths) > 0 {
+		baseQuery := fmt.Sprintf("SELECT %s FROM %s", selectFields, safeMySQLNaming(tableName))
+		query, joinWheres, err := options.JoinRegistry.BuildJoinQuery(baseQuery, tableName, relationshipPaths)
+		if err != nil {
+			return nil, err
+		}
+
+		// Extract join clauses from the built query
+		if strings.Contains(query, "JOIN") {
+			parts := strings.Split(query, safeMySQLNaming(tableName))
+			if len(parts) > 1 {
+				joinPart := strings.TrimSpace(parts[1])
+				if joinPart != "" {
+					joinClauses = append(joinClauses, joinPart)
+				}
+			}
+		}
+
+		joinWhereClauses = append(joinWhereClauses, joinWheres...)
 	}
 
 	// Build main query
 	query := fmt.Sprintf("SELECT %s FROM %s", selectFields, safeMySQLNaming(tableName))
 
-	if len(whereClauses) > 0 {
-		query += " WHERE " + strings.Join(whereClauses, " AND ")
+	// Add joins
+	if len(joinClauses) > 0 {
+		query += " " + strings.Join(joinClauses, " ")
+	}
+
+	// Combine all where clauses
+	allWhereClauses := append(whereClauses, joinWhereClauses...)
+	if len(allWhereClauses) > 0 {
+		query += " WHERE " + strings.Join(allWhereClauses, " AND ")
 	}
 
 	if len(orderClauses) > 0 {
@@ -101,8 +152,13 @@ func GenerateSQL(q *qapi.Query, entity interface{}) (*QueryResult, error) {
 	countArgs := make([]interface{}, len(args))
 	copy(countArgs, args)
 
-	if len(whereClauses) > 0 {
-		countQuery += " WHERE " + strings.Join(whereClauses, " AND ")
+	// Add joins to count query too
+	if len(joinClauses) > 0 {
+		countQuery += " " + strings.Join(joinClauses, " ")
+	}
+
+	if len(allWhereClauses) > 0 {
+		countQuery += " WHERE " + strings.Join(allWhereClauses, " AND ")
 	}
 
 	// Add pagination to main query
@@ -130,16 +186,38 @@ func GenerateDB(q *qapi.Query, db *sqlx.DB, entity interface{}) (*sqlx.DB, error
 	return db, fmt.Errorf("GenerateDB is deprecated, use GenerateSQL instead")
 }
 
-/*
-GetTableName reads the table name of the given interface{}
-*/
+// GetTableName reads the table name of the given interface{} with reduced reflection
 func GetTableName(e any) (reflect.Type, string) {
+	// Try interface-based approach first (no reflection)
+	if tableNamer, ok := e.(TableNamer); ok {
+		typ := reflection.ExtractRealTypeField(reflect.TypeOf(e))
+		return typ, tableNamer.TableName()
+	}
+
+	// Fallback to reflection
+	return getTableNameWithReflection(e)
+}
+
+// getTableNameWithReflection is the original reflection-based implementation
+func getTableNameWithReflection(e any) (reflect.Type, string) {
 	typ := reflection.ExtractRealTypeField(reflect.TypeOf(e))
 	if m, hasName := typ.MethodByName("TableName"); hasName {
 		res := m.Func.Call([]reflect.Value{reflect.ValueOf(e)})
 		return typ, res[0].String()
 	}
 	return typ, typ.Name()
+}
+
+// GetTableNameOptimized gets table name without reflection when possible
+func GetTableNameOptimized(e any) string {
+	// Try interface-based approach first (no reflection)
+	if tableNamer, ok := e.(TableNamer); ok {
+		return tableNamer.TableName()
+	}
+
+	// Fallback to reflection
+	_, tableName := getTableNameWithReflection(e)
+	return tableName
 }
 
 func isNull(value interface{}) bool {

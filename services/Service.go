@@ -1,4 +1,4 @@
-// Package services provides an interface for CRUD operations and an implementation for GORM
+// Package services provides an interface for CRUD operations and an implementation for SQLX
 package services
 
 import (

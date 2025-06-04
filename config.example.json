@@ -1,0 +1,18 @@
+{
+  "db": [
+    {
+      "name": "default",
+      "dialog": "mysql",
+      "args": ["user:password@tcp(localhost:3306)/database?parseTime=true&charset=utf8mb4"],
+      "logMode": true,
+      "autoMigrate": [],
+      "allowGlobalUpdate": true
+    },
+    {
+      "name": "analytics",
+      "dialog": "mysql", 
+      "args": ["user:password@tcp(localhost:3306)/analytics?parseTime=true&charset=utf8mb4"],
+      "logMode": false
+    }
+  ]
+} 
