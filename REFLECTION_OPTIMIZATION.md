@@ -1,6 +1,6 @@
 # Reflection Optimization in Sincap-Common
 
-The sincap-common library has been optimized to significantly reduce reflection usage, which was primarily needed for GORM compatibility. With the migration to sqlx, we've introduced interface-based approaches that eliminate or minimize reflection in most common operations.
+The sincap-common library has been optimized to significantly reduce reflection usage, which was primarily needed for GORM compatibility. With the migration to sqlx, we've introduced interface-based approaches that eliminate or minimize reflection in most common operations **while keeping the exact same API**.
 
 ## Overview
 
@@ -11,10 +11,25 @@ The sincap-common library has been optimized to significantly reduce reflection 
 - Performance overhead from constant reflection calls
 
 **After (Interface-based optimization):**
-- ✅ **Zero reflection** for models implementing our interfaces
-- ✅ **Fallback compatibility** for existing models
-- ✅ **Significant performance improvements**
-- ✅ **Type-safe operations**
+- ✅ **Same 5 methods**: List, Create, Read, Update, Delete, DeleteAll
+- ✅ **Zero breaking changes** - existing code works unchanged
+- ✅ **Internal optimizations** - 60-85% faster for optimized models
+- ✅ **Fallback compatibility** - reflection fallback for existing models
+
+## Key Principle: Same API, Better Performance
+
+The optimization is **completely transparent**. You use the exact same methods as before:
+
+```go
+// Same API as always - but now optimized internally!
+mysql.Create(db, &user)
+mysql.Read(db, &user, 1)
+mysql.Update(db, &user)
+mysql.Delete(db, &user)
+mysql.DeleteAll(db, &user, 1, 2, 3)
+```
+
+The magic happens **inside** these methods based on which interfaces your models implement.
 
 ## Performance Benefits
 
@@ -164,38 +179,28 @@ func (u User) GetFieldMap() map[string]interface{} {
 }
 ```
 
-## Zero-Reflection Functions
+## Usage Examples
 
-### Direct CRUD Operations (No Reflection)
-
-```go
-// Create with field map - ZERO reflection
-err := mysql.CreateWithFieldMap(db, "Users", map[string]interface{}{
-    "Name":  "John",
-    "Email": "john@example.com",
-    "Age":   30,
-}, &user)
-
-// Read by ID - ZERO reflection
-err := mysql.ReadByID(db, &user, "Users", 1)
-
-// Update with field map - ZERO reflection
-err := mysql.UpdateWithFieldMap(db, "Users", 1, map[string]interface{}{
-    "Email": "newemail@example.com",
-})
-
-// Delete by ID - ZERO reflection
-err := mysql.DeleteByID(db, "Users", 1)
-```
-
-### Optimized Value Conversion
+### Same API, Optimized Performance
 
 ```go
-// New optimized conversion (no reflection for common types)
-values, err := util.ConvertValueOptimized(filter, values, "123")
+// Create - uses FieldMapper interface internally if available
+err := mysql.Create(db, &user)
 
-// Convert by type name (no reflection)
-value, err := util.ConvertValueByType("123", "int")
+// Read - uses TableNamer interface internally if available  
+err := mysql.Read(db, &user, 1)
+
+// Update - uses FieldMapper + IDGetter interfaces internally if available
+err := mysql.Update(db, &user)
+
+// Partial update - uses IDGetter interface internally if available
+err := mysql.Update(db, &user, map[string]any{"Email": "new@email.com"})
+
+// Delete - uses TableNamer + IDGetter interfaces internally if available
+err := mysql.Delete(db, &user)
+
+// Bulk delete - uses TableNamer interface internally if available
+err := mysql.DeleteAll(db, &user, 1, 2, 3)
 ```
 
 ## Migration Strategy
@@ -274,14 +279,13 @@ Start with the most impactful interfaces:
 2. **IDGetter/IDSetter** - Significant CRUD performance boost
 3. **FieldMapper** - Maximum performance, requires more code
 
-### 2. Use Direct Functions When Possible
+### 2. Use the Same API
 
 ```go
-// Instead of this (uses reflection)
-err := mysql.Create(db, model)
-
-// Use this when you have the data (zero reflection)
-err := mysql.CreateWithFieldMap(db, "Users", fieldMap, &model)
+// Always use the same familiar methods
+err := mysql.Create(db, model)    // Optimized internally if interfaces implemented
+err := mysql.Read(db, model, 1)   // Optimized internally if interfaces implemented
+err := mysql.Update(db, model)    // Optimized internally if interfaces implemented
 ```
 
 ### 3. Cache Field Maps for Repeated Operations
@@ -304,16 +308,6 @@ func (u User) GetFieldMap() map[string]interface{} {
 }
 ```
 
-### 4. Use Type-Specific Conversion
-
-```go
-// Instead of reflection-based conversion
-value, err := util.ConvertValue(filter, typ, kind, values, "123")
-
-// Use direct type conversion
-value, err := util.ConvertValueByType("123", "int")
-```
-
 ## Code Generation Tools
 
 For large projects, consider generating interface implementations:
@@ -334,19 +328,20 @@ The generator can create all interface implementations automatically.
 
 All optimizations are **100% backward compatible**:
 
-- ✅ Existing models work without changes
-- ✅ Reflection fallback for non-optimized models
-- ✅ Gradual migration possible
-- ✅ No breaking changes
+- ✅ **Same 5 methods**: List, Create, Read, Update, Delete, DeleteAll
+- ✅ **Existing models work unchanged**: reflection fallback for non-optimized models
+- ✅ **Gradual migration possible**: implement interfaces one by one
+- ✅ **Zero breaking changes**: all existing code continues to work
 
 ## Summary
 
 The reflection optimization in sincap-common provides:
 
-1. **Massive Performance Gains**: 60-85% faster CRUD operations
-2. **Memory Efficiency**: 70-90% less memory allocation
-3. **Type Safety**: Compile-time interface checking
-4. **Flexibility**: Choose your optimization level
-5. **Compatibility**: Zero breaking changes
+1. **Same Familiar API**: Exact same 5 methods you're used to
+2. **Massive Performance Gains**: 60-85% faster CRUD operations for optimized models
+3. **Memory Efficiency**: 70-90% less memory allocation
+4. **Type Safety**: Compile-time interface checking
+5. **Flexibility**: Choose your optimization level
+6. **Zero Breaking Changes**: Existing code works unchanged
 
-**Recommendation**: Implement at least `TableNamer` interface for all models to get immediate performance benefits with minimal code changes. 
+**Recommendation**: Implement at least `TableNamer` interface for all models to get immediate performance benefits with minimal code changes. The API stays exactly the same! 

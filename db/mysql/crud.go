@@ -75,8 +75,27 @@ func List(DB *sqlx.DB, records any, query *qapi.Query) (int, error) {
 	return int(count), nil
 }
 
-// CreateWithFieldMap creates a record using a field map (no reflection)
-func CreateWithFieldMap(DB *sqlx.DB, tableName string, fieldMap map[string]interface{}, idSetter IDSetter) error {
+// Create Record (optimized with interfaces, fallback to reflection)
+func Create(DB *sqlx.DB, record any) error {
+	// Get table name (optimized)
+	var tableName string
+	if tableNamer, ok := record.(TableNamer); ok {
+		tableName = tableNamer.TableName()
+	} else {
+		_, tableName = queryapi.GetTableName(record)
+	}
+
+	// Try optimized field mapping approach
+	if fieldMapper, ok := record.(FieldMapper); ok {
+		return createWithFieldMap(DB, tableName, fieldMapper.GetFieldMap(), record)
+	}
+
+	// Fallback to reflection
+	return createWithReflection(DB, record, tableName)
+}
+
+// createWithFieldMap creates using field map (optimized)
+func createWithFieldMap(DB *sqlx.DB, tableName string, fieldMap map[string]interface{}, record any) error {
 	if len(fieldMap) == 0 {
 		return fmt.Errorf("no fields provided for insert")
 	}
@@ -106,49 +125,34 @@ func CreateWithFieldMap(DB *sqlx.DB, tableName string, fieldMap map[string]inter
 
 	result, err := DB.Exec(query, values...)
 	if err != nil {
-		logging.Logger.Error("CreateWithFieldMap error", zap.String("table", tableName), zap.Error(err))
+		logging.Logger.Error("Create error", zap.String("table", tableName), zap.Error(err))
 		return err
 	}
 
-	// Set the ID if possible
-	if idSetter != nil {
-		if id, err := result.LastInsertId(); err == nil {
+	// Set the ID if possible (optimized)
+	if id, err := result.LastInsertId(); err == nil {
+		if idSetter, ok := record.(IDSetter); ok {
 			idSetter.SetID(uint64(id))
+		} else {
+			// Fallback to reflection
+			recordValue := reflect.ValueOf(record)
+			if recordValue.Kind() == reflect.Ptr {
+				recordValue = recordValue.Elem()
+			}
+			idField := recordValue.FieldByName("ID")
+			if idField.IsValid() && idField.CanSet() {
+				idField.SetUint(uint64(id))
+			}
 		}
 	}
 
 	return nil
 }
 
-// Create Record (with reduced reflection)
-func Create(DB *sqlx.DB, record any) error {
-	// Try interface-based approach first
-	if fieldMapper, ok := record.(FieldMapper); ok {
-		var tableName string
-		if tableNamer, ok := record.(TableNamer); ok {
-			tableName = tableNamer.TableName()
-		} else {
-			_, tableName = queryapi.GetTableName(record)
-		}
+// createWithReflection is the reflection-based implementation
+func createWithReflection(DB *sqlx.DB, record any, tableName string) error {
+	typ, _ := queryapi.GetTableName(record)
 
-		var idSetter IDSetter
-		if setter, ok := record.(IDSetter); ok {
-			idSetter = setter
-		}
-
-		return CreateWithFieldMap(DB, tableName, fieldMapper.GetFieldMap(), idSetter)
-	}
-
-	// Fallback to reflection-based approach
-	return createWithReflection(DB, record)
-}
-
-// createWithReflection is the original reflection-based implementation
-func createWithReflection(DB *sqlx.DB, record any) error {
-	// Get table name and struct info
-	typ, tableName := queryapi.GetTableName(record)
-
-	// Build INSERT query using reflection
 	var columns []string
 	var placeholders []string
 	var values []interface{}
@@ -184,11 +188,11 @@ func createWithReflection(DB *sqlx.DB, record any) error {
 
 	result, err := DB.Exec(query, values...)
 	if err != nil {
-		logging.Logger.Error("Create error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(err), zap.Any("record", record))
+		logging.Logger.Error("Create error", zap.Any("Model", reflect.TypeOf(record)), zap.Error(err))
 		return err
 	}
 
-	// Set the ID if it's an auto-increment field
+	// Set the ID
 	if id, err := result.LastInsertId(); err == nil {
 		idField := recordValue.FieldByName("ID")
 		if idField.IsValid() && idField.CanSet() {
@@ -199,21 +203,12 @@ func createWithReflection(DB *sqlx.DB, record any) error {
 	return nil
 }
 
-// ReadByID reads a record by ID (no reflection needed)
-func ReadByID(DB *sqlx.DB, dest any, tableName string, id any) error {
-	query := fmt.Sprintf("SELECT * FROM %s WHERE ID = ?", safeMySQLNaming(tableName))
-	err := DB.Get(dest, query, id)
-	if err != nil {
-		logging.Logger.Error("ReadByID error", zap.String("table", tableName), zap.Error(err), zap.Any("id", id))
-	}
-	return err
-}
-
-// Read Record (with reduced reflection)
+// Read Record (optimized with interfaces, fallback to reflection)
 func Read(DB *sqlx.DB, record any, id any, preloads ...string) error {
 	// Note: preloads are ignored in sqlx implementation
 	// Users need to handle relationships manually
 
+	// Get table name (optimized)
 	var tableName string
 	if tableNamer, ok := record.(TableNamer); ok {
 		tableName = tableNamer.TableName()
@@ -221,11 +216,69 @@ func Read(DB *sqlx.DB, record any, id any, preloads ...string) error {
 		_, tableName = queryapi.GetTableName(record)
 	}
 
-	return ReadByID(DB, record, tableName, id)
+	query := fmt.Sprintf("SELECT * FROM %s WHERE ID = ?", safeMySQLNaming(tableName))
+	err := DB.Get(record, query, id)
+	if err != nil {
+		logging.Logger.Error("Read error", zap.String("table", tableName), zap.Error(err), zap.Any("id", id))
+	}
+	return err
 }
 
-// UpdateWithFieldMap updates a record using a field map (no reflection)
-func UpdateWithFieldMap(DB *sqlx.DB, tableName string, id interface{}, fieldMap map[string]interface{}) error {
+// Update Updates the record with the given fields (optimized with interfaces, fallback to reflection)
+func Update(DB *sqlx.DB, model any, fieldsParams ...map[string]any) error {
+	// Get table name (optimized)
+	var tableName string
+	if tableNamer, ok := model.(TableNamer); ok {
+		tableName = tableNamer.TableName()
+	} else {
+		_, tableName = queryapi.GetTableName(model)
+	}
+
+	// Partial update with specific fields
+	if len(fieldsParams) > 0 && fieldsParams[0] != nil {
+		// Get ID (optimized)
+		var id interface{}
+		if idGetter, ok := model.(IDGetter); ok {
+			id = idGetter.GetID()
+		} else {
+			// Fallback to reflection
+			modelValue := reflect.ValueOf(model)
+			if modelValue.Kind() == reflect.Ptr {
+				modelValue = modelValue.Elem()
+			}
+			idField := modelValue.FieldByName("ID")
+			if !idField.IsValid() {
+				return fmt.Errorf("no ID field found for update")
+			}
+			id = idField.Interface()
+		}
+
+		return updateWithFieldMap(DB, tableName, id, fieldsParams[0])
+	}
+
+	// Full record update - try optimized approach first
+	if fieldMapper, ok := model.(FieldMapper); ok {
+		var id interface{}
+		if idGetter, ok := model.(IDGetter); ok {
+			id = idGetter.GetID()
+		} else {
+			return fmt.Errorf("model must implement IDGetter for full update")
+		}
+
+		fieldMap := fieldMapper.GetFieldMap()
+		// Remove ID from field map for update
+		delete(fieldMap, "ID")
+		delete(fieldMap, "id")
+
+		return updateWithFieldMap(DB, tableName, id, fieldMap)
+	}
+
+	// Fallback to reflection
+	return updateWithReflection(DB, model, tableName)
+}
+
+// updateWithFieldMap updates using field map (optimized)
+func updateWithFieldMap(DB *sqlx.DB, tableName string, id interface{}, fieldMap map[string]interface{}) error {
 	if len(fieldMap) == 0 {
 		return fmt.Errorf("no fields provided for update")
 	}
@@ -256,67 +309,15 @@ func UpdateWithFieldMap(DB *sqlx.DB, tableName string, id interface{}, fieldMap 
 
 	_, err := DB.Exec(query, values...)
 	if err != nil {
-		logging.Logger.Error("UpdateWithFieldMap error", zap.String("table", tableName), zap.Error(err))
+		logging.Logger.Error("Update error", zap.String("table", tableName), zap.Error(err))
 	}
 	return err
 }
 
-// Update Updates the record with the given fields (with reduced reflection)
-func Update(DB *sqlx.DB, model any, fieldsParams ...map[string]any) error {
-	var tableName string
-	if tableNamer, ok := model.(TableNamer); ok {
-		tableName = tableNamer.TableName()
-	} else {
-		_, tableName = queryapi.GetTableName(model)
-	}
-
-	// Partial update with specific fields
-	if len(fieldsParams) > 0 && fieldsParams[0] != nil {
-		var id interface{}
-		if idGetter, ok := model.(IDGetter); ok {
-			id = idGetter.GetID()
-		} else {
-			// Fallback to reflection
-			modelValue := reflect.ValueOf(model)
-			if modelValue.Kind() == reflect.Ptr {
-				modelValue = modelValue.Elem()
-			}
-			idField := modelValue.FieldByName("ID")
-			if !idField.IsValid() {
-				return fmt.Errorf("no ID field found for update")
-			}
-			id = idField.Interface()
-		}
-
-		return UpdateWithFieldMap(DB, tableName, id, fieldsParams[0])
-	}
-
-	// Full record update - try interface-based approach first
-	if fieldMapper, ok := model.(FieldMapper); ok {
-		var id interface{}
-		if idGetter, ok := model.(IDGetter); ok {
-			id = idGetter.GetID()
-		} else {
-			return fmt.Errorf("model must implement IDGetter for full update")
-		}
-
-		fieldMap := fieldMapper.GetFieldMap()
-		// Remove ID from field map for update
-		delete(fieldMap, "ID")
-		delete(fieldMap, "id")
-
-		return UpdateWithFieldMap(DB, tableName, id, fieldMap)
-	}
-
-	// Fallback to reflection-based approach
-	return updateWithReflection(DB, model, tableName)
-}
-
-// updateWithReflection is the original reflection-based implementation
+// updateWithReflection is the reflection-based implementation
 func updateWithReflection(DB *sqlx.DB, model any, tableName string) error {
 	typ, _ := queryapi.GetTableName(model)
 
-	// Update full record - build SET clause from struct fields
 	var setClauses []string
 	var values []interface{}
 	var whereValue interface{}
@@ -355,23 +356,14 @@ func updateWithReflection(DB *sqlx.DB, model any, tableName string) error {
 
 	_, err := DB.Exec(query, values...)
 	if err != nil {
-		logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(model)), zap.Error(err), zap.Any("record", model))
+		logging.Logger.Error("Update error", zap.Any("Model", reflect.TypeOf(model)), zap.Error(err))
 	}
 	return err
 }
 
-// DeleteByID deletes a record by ID (no reflection needed)
-func DeleteByID(DB *sqlx.DB, tableName string, id interface{}) error {
-	query := fmt.Sprintf("DELETE FROM %s WHERE ID = ?", safeMySQLNaming(tableName))
-	_, err := DB.Exec(query, id)
-	if err != nil {
-		logging.Logger.Error("DeleteByID error", zap.String("table", tableName), zap.Error(err), zap.Any("id", id))
-	}
-	return err
-}
-
-// Delete Record (with reduced reflection)
+// Delete Record (optimized with interfaces, fallback to reflection)
 func Delete(DB *sqlx.DB, record any) error {
+	// Get table name (optimized)
 	var tableName string
 	if tableNamer, ok := record.(TableNamer); ok {
 		tableName = tableNamer.TableName()
@@ -379,6 +371,7 @@ func Delete(DB *sqlx.DB, record any) error {
 		_, tableName = queryapi.GetTableName(record)
 	}
 
+	// Get ID (optimized)
 	var id interface{}
 	if idGetter, ok := record.(IDGetter); ok {
 		id = idGetter.GetID()
@@ -388,7 +381,6 @@ func Delete(DB *sqlx.DB, record any) error {
 		if recordValue.Kind() == reflect.Ptr {
 			recordValue = recordValue.Elem()
 		}
-
 		idField := recordValue.FieldByName("ID")
 		if !idField.IsValid() {
 			return fmt.Errorf("no ID field found for delete")
@@ -396,11 +388,17 @@ func Delete(DB *sqlx.DB, record any) error {
 		id = idField.Interface()
 	}
 
-	return DeleteByID(DB, tableName, id)
+	query := fmt.Sprintf("DELETE FROM %s WHERE ID = ?", safeMySQLNaming(tableName))
+	_, err := DB.Exec(query, id)
+	if err != nil {
+		logging.Logger.Error("Delete error", zap.String("table", tableName), zap.Error(err), zap.Any("id", id))
+	}
+	return err
 }
 
-// DeleteAll Records (no reflection needed)
+// DeleteAll Records (optimized with interfaces, fallback to reflection)
 func DeleteAll(DB *sqlx.DB, record any, ids ...any) error {
+	// Get table name (optimized)
 	var tableName string
 	if tableNamer, ok := record.(TableNamer); ok {
 		tableName = tableNamer.TableName()
