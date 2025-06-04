@@ -67,7 +67,7 @@ func List(DB *gorm.DB, records any, query *qapi.Query, lang []string) (int, erro
 	}
 
 	// Get total count if pagination is used
-	count, err := handlePagination(db, calculateCount, query)
+	count, db, err := handlePagination(db, calculateCount, query)
 	if err != nil {
 		return 0, err
 	}
@@ -111,18 +111,18 @@ func addQSearch(db *gorm.DB, query string, langCode string, multiLangFields []st
 }
 
 // handlePagination applies pagination and returns the total count if needed
-func handlePagination(db *gorm.DB, calculateCount bool, query *qapi.Query) (int, error) {
+func handlePagination(db *gorm.DB, calculateCount bool, query *qapi.Query) (int, *gorm.DB, error) {
 	var count int64 = -1
 	if calculateCount {
 		cDB := db.Count(&count)
 		if cDB.Error != nil {
-			return 0, cDB.Error
+			return 0, db, cDB.Error
 		}
 		// Add offset and limit
 		db = db.Offset(query.Offset)
 		db = db.Limit(query.Limit)
 	}
-	return int(count), nil
+	return int(count), db, nil
 }
 
 // generateTranslatedDB handles the complex logic for queries with translations
@@ -566,23 +566,74 @@ func getColumnName(field reflect.StructField) string {
 // addPreloads adds all preload statements to the query with enhanced translation support
 func addPreloads(db *gorm.DB, preloads []string, langCode string, entityType reflect.Type) *gorm.DB {
 	for _, preload := range preloads {
-		field, found := entityType.FieldByName(preload)
-		if !found {
-			continue
-		}
+		if strings.Contains(preload, ".") {
+			// Handle chained preloads
+			parts := strings.Split(preload, ".")
+			if len(parts) == 2 {
+				firstLevel := parts[0]
+				secondLevel := parts[1]
 
-		relatedType := getRelatedModelType(field.Type)
-		relatedModel := reflect.New(relatedType).Interface()
-		nestedMultiLangFields := findTranslationFields(relatedModel)
+				field, found := entityType.FieldByName(firstLevel)
+				if found {
+					relatedType := getRelatedModelType(field.Type)
+					relatedModel := reflect.New(relatedType).Interface()
+					firstLevelMultiLangFields := findTranslationFields(relatedModel)
 
-		// Check for polymorphic relationships
-		if len(nestedMultiLangFields) > 0 && langCode != "all" {
-			translatedSelects := buildTranslatedSelectClause(relatedType, nestedMultiLangFields, langCode)
-			db = db.Preload(preload, func(tx *gorm.DB) *gorm.DB {
-				return tx.Select(translatedSelects)
-			})
-		} else {
+					secondField, secondFound := relatedType.FieldByName(secondLevel)
+					if secondFound {
+						secondRelatedType := getRelatedModelType(secondField.Type)
+						secondRelatedModel := reflect.New(secondRelatedType).Interface()
+						secondLevelMultiLangFields := findTranslationFields(secondRelatedModel)
+
+						// Handle translation fields for both levels
+						if len(firstLevelMultiLangFields) > 0 && langCode != "all" {
+							firstLevelSelects := buildTranslatedSelectClause(relatedType, firstLevelMultiLangFields, langCode)
+							if len(secondLevelMultiLangFields) > 0 && langCode != "all" {
+								secondLevelSelects := buildTranslatedSelectClause(secondRelatedType, secondLevelMultiLangFields, langCode)
+								db = db.Preload(firstLevel, func(tx *gorm.DB) *gorm.DB {
+									return tx.Select(firstLevelSelects).Preload(secondLevel, func(tx2 *gorm.DB) *gorm.DB {
+										return tx2.Select(secondLevelSelects)
+									})
+								})
+							} else {
+								db = db.Preload(firstLevel, func(tx *gorm.DB) *gorm.DB {
+									return tx.Select(firstLevelSelects).Preload(secondLevel)
+								})
+							}
+						} else if len(secondLevelMultiLangFields) > 0 && langCode != "all" {
+							secondLevelSelects := buildTranslatedSelectClause(secondRelatedType, secondLevelMultiLangFields, langCode)
+							db = db.Preload(preload, func(tx *gorm.DB) *gorm.DB {
+								return tx.Select(secondLevelSelects)
+							})
+						} else {
+							db = db.Preload(preload)
+						}
+						continue
+					}
+				}
+			}
+			// Fallback for complex nested relationships or not found fields
 			db = db.Preload(preload)
+		} else {
+			// Handle single-level preloads
+			field, found := entityType.FieldByName(preload)
+			if found {
+				relatedType := getRelatedModelType(field.Type)
+				relatedModel := reflect.New(relatedType).Interface()
+				nestedMultiLangFields := findTranslationFields(relatedModel)
+
+				if len(nestedMultiLangFields) > 0 && langCode != "all" {
+					translatedSelects := buildTranslatedSelectClause(relatedType, nestedMultiLangFields, langCode)
+					db = db.Preload(preload, func(tx *gorm.DB) *gorm.DB {
+						return tx.Select(translatedSelects)
+					})
+				} else {
+					db = db.Preload(preload)
+				}
+			} else {
+				// If field not found, still try to preload (might be a valid GORM preload)
+				db = db.Preload(preload)
+			}
 		}
 	}
 	return db
@@ -596,30 +647,69 @@ func findNestedTranslationFields(preloads []string, entityType reflect.Type) (
 	m2mFields := make(map[string]string)
 
 	for _, preload := range preloads {
-		field, found := entityType.FieldByName(preload)
-		if !found {
-			continue
-		}
+		// Handle chained preloads
+		if strings.Contains(preload, ".") {
+			parts := strings.Split(preload, ".")
+			if len(parts) >= 2 {
+				// For chained preloads, we need to check each level
+				currentType := entityType
+				currentPreload := ""
 
-		// Check for many2many relationship
-		if m2mTable, isM2M := util.GetMany2Many(&field); isM2M {
-			m2mFields[preload] = m2mTable
-		}
+				for i, part := range parts {
+					if i > 0 {
+						currentPreload += "."
+					}
+					currentPreload += part
 
-		// Check for polymorphic relationship
-		_, isPoly := util.GetPolymorphic(&field)
+					field, found := currentType.FieldByName(part)
+					if !found {
+						break
+					}
 
-		relatedModelType := getRelatedModelType(field.Type)
-		relatedModel := reflect.New(relatedModelType).Interface()
-		nestedFields := findTranslationFields(relatedModel)
+					// Check for many2many relationship at this level
+					if m2mTable, isM2M := util.GetMany2Many(&field); isM2M {
+						m2mFields[currentPreload] = m2mTable
+					}
 
-		if len(nestedFields) > 0 {
-			nestedMultiLangFields[preload] = nestedFields
-		}
+					// Get the related model type
+					relatedModelType := getRelatedModelType(field.Type)
+					relatedModel := reflect.New(relatedModelType).Interface()
+					nestedFields := findTranslationFields(relatedModel)
 
-		// For polymorphic relationships, handle nested relationships
-		if isPoly {
-			// You can add recursive handling for nested polymorphic relationships here
+					if len(nestedFields) > 0 {
+						nestedMultiLangFields[currentPreload] = nestedFields
+					}
+
+					// Update current type for next iteration
+					currentType = relatedModelType
+				}
+			}
+		} else {
+			// Handle single-level preloads (original logic)
+			field, found := entityType.FieldByName(preload)
+			if !found {
+				continue
+			}
+
+			// Check for many2many relationship
+			if m2mTable, isM2M := util.GetMany2Many(&field); isM2M {
+				m2mFields[preload] = m2mTable
+			}
+
+			// Check for polymorphic relationship
+			_, isPoly := util.GetPolymorphic(&field)
+
+			relatedModelType := getRelatedModelType(field.Type)
+			relatedModel := reflect.New(relatedModelType).Interface()
+			nestedFields := findTranslationFields(relatedModel)
+
+			if len(nestedFields) > 0 {
+				nestedMultiLangFields[preload] = nestedFields
+			}
+			// For polymorphic relationships, handle nested relationships
+			if isPoly {
+				// You can add recursive handling for nested polymorphic relationships here
+			}
 		}
 	}
 
