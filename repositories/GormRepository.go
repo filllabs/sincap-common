@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"github.com/filllabs/sincap-common/db/mysql"
+	"github.com/filllabs/sincap-common/db/mysql/translations"
 	"github.com/filllabs/sincap-common/middlewares/qapi"
 	"gorm.io/gorm"
 )
@@ -11,7 +12,10 @@ type GormRepository struct {
 }
 
 // List retrieves a list of records based on the given query and preloads
-func (rep *GormRepository) List(db *gorm.DB, records any, query *qapi.Query) (int, error) {
+func (rep *GormRepository) List(db *gorm.DB, records any, query *qapi.Query, lang ...string) (int, error) {
+	if len(lang) > 0 {
+		return translations.List(db, records, query, lang)
+	}
 	return mysql.List(db, records, query)
 }
 

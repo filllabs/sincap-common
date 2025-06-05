@@ -9,7 +9,7 @@ import (
 type Repository interface {
 	// List combines previous List and ListSmartSelect
 	// If record is of type E, performs regular list, otherwise does smart select
-	List(db *gorm.DB, record any, query *qapi.Query) (int, error)
+	List(db *gorm.DB, record any, query *qapi.Query, lang ...string) (int, error)
 
 	// Read combines previous Read and ReadSmartSelect
 	// If record is of type *E, performs regular read, otherwise does smart select

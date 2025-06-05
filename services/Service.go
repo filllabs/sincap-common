@@ -11,7 +11,7 @@ import (
 type Service[E any] interface {
 	// List retrieves a collection of records based on the query parameters
 	// Returns the total count of records and any error encountered
-	List(ctx context.Context, record *[]E, query *qapi.Query) (int, error)
+	List(ctx context.Context, record *[]E, query *qapi.Query, lang ...string) (int, error)
 
 	// Read retrieves a single record by its ID
 	// Accepts optional preload parameters for eager loading related data
@@ -31,7 +31,7 @@ type Service[E any] interface {
 
 // HasList checks if the service implements List
 type HasList[E any] interface {
-	List(ctx context.Context, record *[]E, query *qapi.Query) (int, error)
+	List(ctx context.Context, record *[]E, query *qapi.Query, lang ...string) (int, error)
 }
 
 // HasRead checks if the service implements Read
