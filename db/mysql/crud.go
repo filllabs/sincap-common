@@ -29,7 +29,7 @@ func List(DB *sqlx.DB, records any, query *qapi.Query) (int, error) {
 	}
 
 	// Generate SQL query
-	queryResult, err := queryapi.GenerateSQL(query, records)
+	queryResult, err := queryapi.GenerateDB(query, records)
 	if err != nil {
 		return 0, err
 	}

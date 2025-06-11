@@ -27,13 +27,13 @@ type QueryOptions struct {
 	JoinRegistry *JoinRegistry // Optional join registry for relationship queries
 }
 
-// GenerateSQL generates SQL query and parameters from the given api Query
-func GenerateSQL(q *qapi.Query, entity interface{}) (*QueryResult, error) {
-	return GenerateSQLWithOptions(q, entity, nil)
+// GenerateDB generates SQL query and parameters from the given api Query
+func GenerateDB(q *qapi.Query, entity interface{}) (*QueryResult, error) {
+	return GenerateDBWithOptions(q, entity, nil)
 }
 
-// GenerateSQLWithOptions generates SQL query with additional options like join registry
-func GenerateSQLWithOptions(q *qapi.Query, entity interface{}, options *QueryOptions) (*QueryResult, error) {
+// GenerateDBWithOptions generates SQL query with additional options like join registry
+func GenerateDBWithOptions(q *qapi.Query, entity interface{}, options *QueryOptions) (*QueryResult, error) {
 	typ, tableName := GetTableName(entity)
 
 	var whereClauses []string

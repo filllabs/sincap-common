@@ -147,7 +147,7 @@ func TestGenerateSQLWithJoins(t *testing.T) {
 		JoinRegistry: registry,
 	}
 
-	result, err := GenerateSQLWithOptions(query, Sample{}, options)
+	result, err := GenerateDBWithOptions(query, Sample{}, options)
 	if err != nil {
 		t.Errorf("GenerateSQLWithOptions() error = %v", err)
 		return
@@ -176,7 +176,7 @@ func TestGenerateSQL_BackwardCompatibility(t *testing.T) {
 		Limit: 10,
 	}
 
-	result, err := GenerateSQL(query, Sample{})
+	result, err := GenerateDB(query, Sample{})
 	if err != nil {
 		t.Errorf("GenerateSQL() error = %v", err)
 		return

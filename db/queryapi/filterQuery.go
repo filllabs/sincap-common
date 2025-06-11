@@ -38,7 +38,7 @@ func filter2SqlWithJoins(filters []qapi.Filter, typ reflect.Type, tableName stri
 				condition = getCondition(condition, tableName+"."+fieldNames[0]+"->"+"'$."+fieldNames[1]+"'", filter.Value, qapi.LK)
 				values = append(values, filter.Value)
 				targetField = &field
-			} else if cond, f, relPath, err := generateFilterQueryWithJoins(fieldNames, 1, typ, tableName, filter, options); err == nil {
+			} else if cond, f, relPath, err := generateFilterQuery(fieldNames, 1, typ, tableName, filter, options); err == nil {
 				condition = append(condition, cond)
 				targetField = f
 				if relPath != "" {
@@ -98,7 +98,7 @@ func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (stri
 	return where, values, err
 }
 
-func generateFilterQueryWithJoins(fieldNames []string, i int, typ reflect.Type, tableName string, filter qapi.Filter, options *QueryOptions) (string, *reflect.StructField, string, error) {
+func generateFilterQuery(fieldNames []string, i int, typ reflect.Type, tableName string, filter qapi.Filter, options *QueryOptions) (string, *reflect.StructField, string, error) {
 	var condition []string
 	var targetField *reflect.StructField
 
@@ -123,7 +123,7 @@ func generateFilterQueryWithJoins(fieldNames []string, i int, typ reflect.Type, 
 	var innerCond string
 	if i+1 < len(fieldNames) {
 		// Recursive call for nested relationships
-		if cond, f, _, err := generateFilterQueryWithJoins(fieldNames, i+1, fieldType, table, filter, options); err == nil {
+		if cond, f, _, err := generateFilterQuery(fieldNames, i+1, fieldType, table, filter, options); err == nil {
 			innerCond = cond
 			targetField = f
 		} else {

@@ -208,7 +208,7 @@ func main() {
 		JoinRegistry: joinRegistry,
 	}
 
-	result, err := queryapi.GenerateSQLWithOptions(complexQuery, User{}, options)
+	result, err := queryapi.GenerateDBWithOptions(complexQuery, User{}, options)
 	if err != nil {
 		log.Printf("GenerateSQLWithOptions error: %v", err)
 	} else {

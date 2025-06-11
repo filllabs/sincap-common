@@ -12,7 +12,7 @@ import (
 // q2SqlWithJoins generates SQL with support for joins
 func q2SqlWithJoins(q string, typ reflect.Type, tableName string, options *QueryOptions) (string, []interface{}, []string, error) {
 	// Convert q to  where condition with OR for all fields with tag
-	where, values, relationshipPaths, err := generateQQueryWithJoins(typ, tableName, q, options)
+	where, values, relationshipPaths, err := generateQQuery(typ, tableName, q, options)
 	if err != nil {
 		logging.Logger.Warn("Can't create query from q", zap.Error(err))
 	}
@@ -25,7 +25,7 @@ func q2Sql(q string, typ reflect.Type, tableName string) (string, []interface{},
 	return where, values, err
 }
 
-func generateQQueryWithJoins(structType reflect.Type, tableName string, q string, options *QueryOptions) ([]string, []interface{}, []string, error) {
+func generateQQuery(structType reflect.Type, tableName string, q string, options *QueryOptions) ([]string, []interface{}, []string, error) {
 	var where []string
 	var values []interface{}
 	var relationshipPaths []string
@@ -39,7 +39,7 @@ func generateQQueryWithJoins(structType reflect.Type, tableName string, q string
 		}
 
 		// if its is struct generate query recursively
-		w, v, relPaths, err := generateQQueryWithJoins(field.Typ, field.TableName, q, options)
+		w, v, relPaths, err := generateQQuery(field.Typ, field.TableName, q, options)
 		var cond []string
 		if err != nil {
 			logging.Logger.Warn("Can't create query from q", zap.Error(err))
