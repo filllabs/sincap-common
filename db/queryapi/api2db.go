@@ -5,19 +5,14 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/filllabs/sincap-common/db/interfaces"
 	"github.com/filllabs/sincap-common/db/types"
-	"github.com/jmoiron/sqlx"
-
+	"github.com/filllabs/sincap-common/db/util"
 	"github.com/filllabs/sincap-common/middlewares/qapi"
 	"github.com/filllabs/sincap-common/reflection"
 )
 
 var jsonType = reflect.TypeOf(types.JSON{})
-
-// TableNamer interface for models that can provide their table name
-type TableNamer interface {
-	TableName() string
-}
 
 // QueryResult holds the generated SQL query and parameters
 type QueryResult struct {
@@ -63,14 +58,14 @@ func GenerateSQLWithOptions(q *qapi.Query, entity interface{}, options *QueryOpt
 				dp := reflection.DepointerField(field.Type)
 				if dp == jsonType {
 					orderClause := fmt.Sprintf("CAST(%s.%s->'$.%s' AS CHAR) %s",
-						safeMySQLNaming(tableName),
-						safeMySQLNaming(fieldNames[0]),
+						util.SafeMySQLNaming(tableName),
+						util.SafeMySQLNaming(fieldNames[0]),
 						fieldNames[1],
 						values[1])
 					orderClauses = append(orderClauses, orderClause)
 				} else {
 					orderClause := fmt.Sprintf("%s %s",
-						safeMySQLNaming(strings.Join(fieldNames, "__")),
+						util.SafeMySQLNaming(strings.Join(fieldNames, "__")),
 						values[1])
 					orderClauses = append(orderClauses, orderClause)
 				}
@@ -109,7 +104,7 @@ func GenerateSQLWithOptions(q *qapi.Query, entity interface{}, options *QueryOpt
 
 	// Generate joins if we have a join registry and relationship paths
 	if options != nil && options.JoinRegistry != nil && len(relationshipPaths) > 0 {
-		baseQuery := fmt.Sprintf("SELECT %s FROM %s", selectFields, safeMySQLNaming(tableName))
+		baseQuery := fmt.Sprintf("SELECT %s FROM %s", selectFields, util.SafeMySQLNaming(tableName))
 		query, joinWheres, err := options.JoinRegistry.BuildJoinQuery(baseQuery, tableName, relationshipPaths)
 		if err != nil {
 			return nil, err
@@ -117,7 +112,7 @@ func GenerateSQLWithOptions(q *qapi.Query, entity interface{}, options *QueryOpt
 
 		// Extract join clauses from the built query
 		if strings.Contains(query, "JOIN") {
-			parts := strings.Split(query, safeMySQLNaming(tableName))
+			parts := strings.Split(query, util.SafeMySQLNaming(tableName))
 			if len(parts) > 1 {
 				joinPart := strings.TrimSpace(parts[1])
 				if joinPart != "" {
@@ -130,7 +125,7 @@ func GenerateSQLWithOptions(q *qapi.Query, entity interface{}, options *QueryOpt
 	}
 
 	// Build main query
-	query := fmt.Sprintf("SELECT %s FROM %s", selectFields, safeMySQLNaming(tableName))
+	query := fmt.Sprintf("SELECT %s FROM %s", selectFields, util.SafeMySQLNaming(tableName))
 
 	// Add joins
 	if len(joinClauses) > 0 {
@@ -148,7 +143,7 @@ func GenerateSQLWithOptions(q *qapi.Query, entity interface{}, options *QueryOpt
 	}
 
 	// Build count query for pagination
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", safeMySQLNaming(tableName))
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", util.SafeMySQLNaming(tableName))
 	countArgs := make([]interface{}, len(args))
 	copy(countArgs, args)
 
@@ -180,16 +175,10 @@ func GenerateSQLWithOptions(q *qapi.Query, entity interface{}, options *QueryOpt
 	}, nil
 }
 
-// GenerateDB generates a valid db query from the given api Query (deprecated - use GenerateSQL)
-func GenerateDB(q *qapi.Query, db *sqlx.DB, entity interface{}) (*sqlx.DB, error) {
-	// This function is kept for backward compatibility but should be replaced with GenerateSQL
-	return db, fmt.Errorf("GenerateDB is deprecated, use GenerateSQL instead")
-}
-
 // GetTableName reads the table name of the given interface{} with reduced reflection
 func GetTableName(e any) (reflect.Type, string) {
 	// Try interface-based approach first (no reflection)
-	if tableNamer, ok := e.(TableNamer); ok {
+	if tableNamer, ok := e.(interfaces.TableNamer); ok {
 		typ := reflection.ExtractRealTypeField(reflect.TypeOf(e))
 		return typ, tableNamer.TableName()
 	}
@@ -211,7 +200,7 @@ func getTableNameWithReflection(e any) (reflect.Type, string) {
 // GetTableNameOptimized gets table name without reflection when possible
 func GetTableNameOptimized(e any) string {
 	// Try interface-based approach first (no reflection)
-	if tableNamer, ok := e.(TableNamer); ok {
+	if tableNamer, ok := e.(interfaces.TableNamer); ok {
 		return tableNamer.TableName()
 	}
 
@@ -222,12 +211,4 @@ func GetTableNameOptimized(e any) string {
 
 func isNull(value interface{}) bool {
 	return value == "NULL" || value == "null" || value == "nil"
-}
-
-func safeMySQLNaming(data string) string {
-	return "`" + data + "`"
-}
-
-func column(tableName string, columnName string) string {
-	return safeMySQLNaming(tableName) + "." + safeMySQLNaming(columnName)
 }

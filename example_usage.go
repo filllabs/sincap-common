@@ -18,17 +18,17 @@ type User struct {
 	Age   int    `json:"age" db:"Age"`
 }
 
-// TableName implements mysql.TableNamer interface (reduces reflection)
+// TableName implements TableNamer interface
 func (User) TableName() string {
 	return "Users"
 }
 
-// GetID implements mysql.IDGetter interface (reduces reflection)
+// GetID implements IDGetter interface
 func (u User) GetID() interface{} {
 	return u.ID
 }
 
-// SetID implements mysql.IDSetter interface (reduces reflection)
+// SetID implements IDSetter interface
 func (u *User) SetID(id interface{}) error {
 	if idVal, ok := id.(uint64); ok {
 		u.ID = uint(idVal)
@@ -37,7 +37,7 @@ func (u *User) SetID(id interface{}) error {
 	return fmt.Errorf("invalid ID type")
 }
 
-// GetFieldMap implements mysql.FieldMapper interface (eliminates reflection for CRUD)
+// GetFieldMap implements FieldMapper interface
 func (u User) GetFieldMap() map[string]interface{} {
 	return map[string]interface{}{
 		"ID":    u.ID,
@@ -47,14 +47,14 @@ func (u User) GetFieldMap() map[string]interface{} {
 	}
 }
 
-// Example model without interfaces (uses reflection fallback)
+// Example model without interfaces
 type Product struct {
 	ID    uint    `json:"id" db:"ID"`
 	Name  string  `json:"name" db:"Name"`
 	Price float64 `json:"price" db:"Price"`
 }
 
-// TableName method (will be called via reflection)
+// TableName method
 func (Product) TableName() string {
 	return "Products"
 }
@@ -77,7 +77,7 @@ func main() {
 	// Get database connection
 	database := db.DB()
 
-	// 2. Example: Create a user (OPTIMIZED - uses FieldMapper interface internally)
+	// 2. Example: Create a user (uses FieldMapper interface internally)
 	fmt.Println("\n--- Create Example (Optimized) ---")
 	user := &User{
 		Name:  "John Doe",
@@ -93,7 +93,7 @@ func main() {
 		fmt.Printf("Created user with ID: %d (optimized internally!)\n", user.ID)
 	}
 
-	// 3. Example: Read a user (OPTIMIZED - uses TableName interface internally)
+	// 3. Example: Read a user (uses TableName interface internally)
 	fmt.Println("\n--- Read Example (Optimized) ---")
 	var readUser User
 	// Same API as before, but optimized internally!
@@ -104,7 +104,7 @@ func main() {
 		fmt.Printf("Read user: %+v (optimized internally!)\n", readUser)
 	}
 
-	// 4. Example: Update a user (OPTIMIZED - uses FieldMapper + IDGetter interfaces internally)
+	// 4. Example: Update a user (uses FieldMapper + IDGetter interfaces internally)
 	fmt.Println("\n--- Update Example (Optimized) ---")
 	readUser.Age = 31
 	// Same API as before, but optimized internally!
@@ -115,7 +115,7 @@ func main() {
 		fmt.Println("User updated successfully (optimized internally!)")
 	}
 
-	// 5. Example: Partial update (OPTIMIZED - uses IDGetter interface internally)
+	// 5. Example: Partial update (uses IDGetter interface internally)
 	fmt.Println("\n--- Partial Update Example (Optimized) ---")
 	// Same API as before, but optimized internally!
 	err = mysql.Update(database, &User{ID: 1}, map[string]any{
@@ -128,7 +128,7 @@ func main() {
 		fmt.Println("User updated with field map (optimized internally!)")
 	}
 
-	// 6. Example: Delete a user (OPTIMIZED - uses TableName + IDGetter interfaces internally)
+	// 6. Example: Delete a user (uses TableName + IDGetter interfaces internally)
 	fmt.Println("\n--- Delete Example (Optimized) ---")
 	// Same API as before, but optimized internally!
 	err = mysql.Delete(database, &readUser)
@@ -138,7 +138,7 @@ func main() {
 		fmt.Println("User deleted successfully (optimized internally!)")
 	}
 
-	// 7. Example: Bulk delete (OPTIMIZED - uses TableName interface internally)
+	// 7. Example: Bulk delete (uses TableName interface internally)
 	fmt.Println("\n--- Bulk Delete Example (Optimized) ---")
 	// Same API as before, but optimized internally!
 	err = mysql.DeleteAll(database, &User{}, 2, 3, 4)
@@ -182,7 +182,7 @@ func main() {
 		fmt.Printf("Found %d users (table name resolved via interface)\n", count)
 	}
 
-	// 10. Example: Query API with joins (advanced)
+	// 10. Example: Query API with joins
 	fmt.Println("\n--- Query API with Joins Example ---")
 
 	// Set up join registry for relationship queries

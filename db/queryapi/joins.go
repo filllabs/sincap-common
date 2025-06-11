@@ -3,6 +3,8 @@ package queryapi
 import (
 	"fmt"
 	"strings"
+
+	"github.com/filllabs/sincap-common/db/util"
 )
 
 // JoinType represents the type of SQL join
@@ -104,11 +106,11 @@ func (jr *JoinRegistry) generateDirectJoin(baseTable string, config JoinConfig) 
 
 	joinClause := fmt.Sprintf("%s %s ON %s.%s = %s.%s",
 		config.JoinType,
-		safeMySQLNaming(config.Table),
-		safeMySQLNaming(baseTable),
-		safeMySQLNaming(config.LocalKey),
-		safeMySQLNaming(config.Table),
-		safeMySQLNaming(config.ForeignKey))
+		util.SafeMySQLNaming(config.Table),
+		util.SafeMySQLNaming(baseTable),
+		util.SafeMySQLNaming(config.LocalKey),
+		util.SafeMySQLNaming(config.Table),
+		util.SafeMySQLNaming(config.ForeignKey))
 
 	return joinClause, "", nil
 }
@@ -123,18 +125,18 @@ func (jr *JoinRegistry) generateManyToManyJoin(baseTable string, config JoinConf
 	joinClauses := []string{
 		fmt.Sprintf("%s %s ON %s.%s = %s.%s",
 			config.JoinType,
-			safeMySQLNaming(config.PivotTable),
-			safeMySQLNaming(baseTable),
-			safeMySQLNaming("ID"),
-			safeMySQLNaming(config.PivotTable),
-			safeMySQLNaming(config.PivotLocalKey)),
+			util.SafeMySQLNaming(config.PivotTable),
+			util.SafeMySQLNaming(baseTable),
+			util.SafeMySQLNaming("ID"),
+			util.SafeMySQLNaming(config.PivotTable),
+			util.SafeMySQLNaming(config.PivotLocalKey)),
 		fmt.Sprintf("%s %s ON %s.%s = %s.%s",
 			config.JoinType,
-			safeMySQLNaming(config.Table),
-			safeMySQLNaming(config.PivotTable),
-			safeMySQLNaming(config.PivotForeignKey),
-			safeMySQLNaming(config.Table),
-			safeMySQLNaming("ID")),
+			util.SafeMySQLNaming(config.Table),
+			util.SafeMySQLNaming(config.PivotTable),
+			util.SafeMySQLNaming(config.PivotForeignKey),
+			util.SafeMySQLNaming(config.Table),
+			util.SafeMySQLNaming("ID")),
 	}
 
 	return strings.Join(joinClauses, " "), "", nil
@@ -148,15 +150,15 @@ func (jr *JoinRegistry) generatePolymorphicJoin(baseTable string, config JoinCon
 
 	joinClause := fmt.Sprintf("%s %s ON %s.%s = %s.%s",
 		config.JoinType,
-		safeMySQLNaming(config.Table),
-		safeMySQLNaming(baseTable),
-		safeMySQLNaming("ID"),
-		safeMySQLNaming(config.Table),
-		safeMySQLNaming(config.PolymorphicID))
+		util.SafeMySQLNaming(config.Table),
+		util.SafeMySQLNaming(baseTable),
+		util.SafeMySQLNaming("ID"),
+		util.SafeMySQLNaming(config.Table),
+		util.SafeMySQLNaming(config.PolymorphicID))
 
 	whereClause := fmt.Sprintf("%s.%s = '%s'",
-		safeMySQLNaming(config.Table),
-		safeMySQLNaming(config.PolymorphicType),
+		util.SafeMySQLNaming(config.Table),
+		util.SafeMySQLNaming(config.PolymorphicType),
 		config.PolymorphicValue)
 
 	return joinClause, whereClause, nil

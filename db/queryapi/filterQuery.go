@@ -49,7 +49,7 @@ func filter2SqlWithJoins(filters []qapi.Filter, typ reflect.Type, tableName stri
 			}
 
 		} else {
-			condition = getCondition(condition, safeMySQLNaming(tableName)+"."+safeMySQLNaming(filter.Name), filter.Value, filter.Operation)
+			condition = getCondition(condition, util.SafeMySQLNaming(tableName)+"."+util.SafeMySQLNaming(filter.Name), filter.Value, filter.Operation)
 			field, isFieldFound := typ.FieldByName(filter.Name)
 			if !isFieldFound {
 				return "", values, relationshipPaths, fmt.Errorf("Can't find field for %s", filter.Name)
@@ -59,6 +59,8 @@ func filter2SqlWithJoins(filters []qapi.Filter, typ reflect.Type, tableName stri
 		}
 		where = append(where, strings.Join(condition, " "))
 		kind := reflection.ExtractRealTypeField(targetField.Type).Kind()
+
+		// Use proper value conversion based on field type
 		switch filter.Operation {
 		case qapi.IN:
 			inVals := strings.Split(filter.Value, "|")
@@ -85,8 +87,8 @@ func filter2SqlWithJoins(filters []qapi.Filter, typ reflect.Type, tableName stri
 				return "", values, relationshipPaths, err
 			}
 		}
-
 	}
+
 	return strings.Join(where, " AND "), values, relationshipPaths, nil
 }
 
@@ -96,50 +98,47 @@ func filter2Sql(filters []qapi.Filter, typ reflect.Type, tableName string) (stri
 	return where, values, err
 }
 
-func generateFilterQueryWithJoins(fieldNames []string, i int, structType reflect.Type, tableName string, filter qapi.Filter, options *QueryOptions) (string, *reflect.StructField, string, error) {
+func generateFilterQueryWithJoins(fieldNames []string, i int, typ reflect.Type, tableName string, filter qapi.Filter, options *QueryOptions) (string, *reflect.StructField, string, error) {
 	var condition []string
+	var targetField *reflect.StructField
 
 	fieldName := fieldNames[i-1]
 	innerFieldName := fieldNames[i]
 
-	if structType.Kind() != reflect.Struct {
-		return "", nil, "", fmt.Errorf("%s is not struct", structType.Name())
-	}
-	field, isFieldFound := structType.FieldByName(fieldName)
+	field, isFieldFound := typ.FieldByName(fieldName)
 	if !isFieldFound {
-		return "", nil, "", fmt.Errorf("Can't find struct: %s field: %s", structType.Name(), filter.Name)
+		return "", nil, "", fmt.Errorf("Can't find field for %s", fieldName)
 	}
-	ft := reflection.ExtractRealTypeField(field.Type)
 
-	if ft.Kind() != reflect.Struct && ft.Kind() != reflect.Slice {
-		return "", nil, "", fmt.Errorf("%s is not struct field in %s", filter.Name, structType.Name())
+	// Get the type of the field
+	fieldType := reflection.DepointerField(field.Type)
+	if fieldType.Kind() == reflect.Slice {
+		fieldType = reflection.DepointerField(fieldType.Elem())
 	}
-	//TODO:check  maybe noo need previous extect handles it
-	if ft.Kind() == reflect.Slice {
-		ft = reflection.ExtractRealTypeField(ft.Elem())
-	}
-	innerField, isInnerFieldFound := reflection.ExtractRealTypeField(ft).FieldByName(innerFieldName)
-	if !isInnerFieldFound {
-		return "", nil, "", fmt.Errorf("Can't find struct: %s inner field: %s", reflection.ExtractRealTypeField(ft).Name(), filter.Name)
-	}
-	innerCond := ""
-	var targetField *reflect.StructField
-	var innerErr error
-	var relationshipPath string
 
-	// first dive into inner fields
-	if i < len(fieldNames)-1 {
-		innerCond, targetField, relationshipPath, innerErr = generateFilterQueryWithJoins(fieldNames, i+1, ft, reflection.ExtractRealTypeField(field.Type).Name(), filter, options)
-		if innerErr != nil {
-			return "", targetField, relationshipPath, innerErr
+	// Get table name for the related model
+	val := reflect.New(fieldType)
+	_, table := GetTableName(val.Interface())
+
+	var innerCond string
+	if i+1 < len(fieldNames) {
+		// Recursive call for nested relationships
+		if cond, f, _, err := generateFilterQueryWithJoins(fieldNames, i+1, fieldType, table, filter, options); err == nil {
+			innerCond = cond
+			targetField = f
+		} else {
+			return "", targetField, "", err
 		}
 	} else {
-		targetField = &innerField
+		// This is the final field, get its type from the related model
+		if innerField, found := fieldType.FieldByName(innerFieldName); found {
+			targetField = &innerField
+		} else {
+			return "", nil, "", fmt.Errorf("Can't find field %s in %s", innerFieldName, fieldType.Name())
+		}
 	}
 
-	table := reflection.ExtractRealTypeField(ft).Name()
-
-	// Try to use join registry if available
+	// Check if we have join configuration for this relationship
 	if options != nil && options.JoinRegistry != nil {
 		fieldPath := strings.Join(fieldNames[:i], ".")
 		if config, exists := options.JoinRegistry.Get(fieldPath); exists {
@@ -147,18 +146,18 @@ func generateFilterQueryWithJoins(fieldNames []string, i int, structType reflect
 			if len(innerCond) > 0 {
 				condition = append(condition, innerCond)
 			} else {
-				condition = getCondition(condition, column(config.Table, innerFieldName), filter.Value, filter.Operation)
+				condition = getCondition(condition, util.Column(config.Table, innerFieldName), filter.Value, filter.Operation)
 			}
 			return strings.Join(condition, " "), targetField, fieldPath, nil
 		}
 	}
 
 	// Fallback to subquery approach (no joins)
-	condition = append(condition, column(tableName, fieldName+"ID"), "IN (", "SELECT "+column(table, "ID"), " FROM", safeMySQLNaming(table), "WHERE (")
+	condition = append(condition, util.Column(tableName, fieldName+"ID"), "IN (", "SELECT "+util.Column(table, "ID"), " FROM", util.SafeMySQLNaming(table), "WHERE (")
 	if len(innerCond) > 0 {
 		condition = append(condition, innerCond)
 	} else {
-		condition = getCondition(condition, column(table, innerFieldName), filter.Value, filter.Operation)
+		condition = getCondition(condition, util.Column(table, innerFieldName), filter.Value, filter.Operation)
 	}
 	condition = append(condition, ")", ")")
 
@@ -166,40 +165,39 @@ func generateFilterQueryWithJoins(fieldNames []string, i int, structType reflect
 }
 
 func getCondition(condition []string, field string, value interface{}, operation qapi.Operation) []string {
-	condition = append(condition, field)
 	switch operation {
 	case qapi.EQ:
 		if isNull(value) {
-			condition = append(condition, "IS", "NULL")
+			condition = append(condition, field, "IS NULL")
 		} else {
-			condition = append(condition, "=", "?")
+			condition = append(condition, field, "=", "?")
 		}
 	case qapi.NEQ:
 		if isNull(value) {
-			condition = append(condition, "IS NOT", "NULL")
+			condition = append(condition, field, "IS NOT NULL")
 		} else {
-			condition = append(condition, "<>", "?")
+			condition = append(condition, field, "!=", "?")
 		}
 	case qapi.GT:
-		condition = append(condition, ">", "?")
+		condition = append(condition, field, ">", "?")
 	case qapi.GTE:
-		condition = append(condition, ">=", "?")
+		condition = append(condition, field, ">=", "?")
 	case qapi.LT:
-		condition = append(condition, "<", "?")
+		condition = append(condition, field, "<", "?")
 	case qapi.LTE:
-		condition = append(condition, "<=", "?")
+		condition = append(condition, field, "<=", "?")
 	case qapi.LK:
-		condition = append(condition, "LIKE", "?")
+		condition = append(condition, field, "LIKE", "?")
 	case qapi.IN:
 		params := strings.Split(value.(string), "|")
 		paramSection := strings.Repeat("?,", len(params))
-		condition = append(condition, "IN", "("+paramSection[0:len(paramSection)-1]+")")
-		value = params
+		condition = append(condition, field, "IN", "("+paramSection[0:len(paramSection)-1]+")")
 	case qapi.IN_ALT:
 		params := strings.Split(value.(string), "*")
 		paramSection := strings.Repeat("?,", len(params))
-		condition = append(condition, "IN", "("+paramSection[0:len(paramSection)-1]+")")
-		value = params
+		condition = append(condition, field, "IN", "("+paramSection[0:len(paramSection)-1]+")")
+	default:
+		condition = append(condition, field, "=", "?")
 	}
 	return condition
 }

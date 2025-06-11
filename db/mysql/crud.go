@@ -5,34 +5,16 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/filllabs/sincap-common/db/interfaces"
 	"github.com/filllabs/sincap-common/db/queryapi"
 	"github.com/filllabs/sincap-common/db/types"
+	"github.com/filllabs/sincap-common/db/util"
 	"github.com/filllabs/sincap-common/logging"
 	"github.com/filllabs/sincap-common/middlewares/qapi"
 
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
-
-// TableNamer interface for models that can provide their table name
-type TableNamer interface {
-	TableName() string
-}
-
-// IDGetter interface for models that can provide their ID
-type IDGetter interface {
-	GetID() interface{}
-}
-
-// IDSetter interface for models that can set their ID
-type IDSetter interface {
-	SetID(id interface{}) error
-}
-
-// FieldMapper interface for models that can provide their field mappings
-type FieldMapper interface {
-	GetFieldMap() map[string]interface{}
-}
 
 // List calls ListByQuery or ListAll according to the query parameter
 func List(DB *sqlx.DB, records any, query *qapi.Query) (int, error) {
@@ -79,14 +61,14 @@ func List(DB *sqlx.DB, records any, query *qapi.Query) (int, error) {
 func Create(DB *sqlx.DB, record any) error {
 	// Get table name (optimized)
 	var tableName string
-	if tableNamer, ok := record.(TableNamer); ok {
+	if tableNamer, ok := record.(interfaces.TableNamer); ok {
 		tableName = tableNamer.TableName()
 	} else {
 		_, tableName = queryapi.GetTableName(record)
 	}
 
 	// Try optimized field mapping approach
-	if fieldMapper, ok := record.(FieldMapper); ok {
+	if fieldMapper, ok := record.(interfaces.FieldMapper); ok {
 		return createWithFieldMap(DB, tableName, fieldMapper.GetFieldMap(), record)
 	}
 
@@ -109,7 +91,7 @@ func createWithFieldMap(DB *sqlx.DB, tableName string, fieldMap map[string]inter
 		if strings.ToLower(column) == "id" {
 			continue
 		}
-		columns = append(columns, safeMySQLNaming(column))
+		columns = append(columns, util.SafeMySQLNaming(column))
 		placeholders = append(placeholders, "?")
 		values = append(values, value)
 	}
@@ -119,7 +101,7 @@ func createWithFieldMap(DB *sqlx.DB, tableName string, fieldMap map[string]inter
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-		safeMySQLNaming(tableName),
+		util.SafeMySQLNaming(tableName),
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "))
 
@@ -131,7 +113,7 @@ func createWithFieldMap(DB *sqlx.DB, tableName string, fieldMap map[string]inter
 
 	// Set the ID if possible (optimized)
 	if id, err := result.LastInsertId(); err == nil {
-		if idSetter, ok := record.(IDSetter); ok {
+		if idSetter, ok := record.(interfaces.IDSetter); ok {
 			idSetter.SetID(uint64(id))
 		} else {
 			// Fallback to reflection
@@ -176,13 +158,13 @@ func createWithReflection(DB *sqlx.DB, record any, tableName string) error {
 			continue
 		}
 
-		columns = append(columns, safeMySQLNaming(field.Name))
+		columns = append(columns, util.SafeMySQLNaming(field.Name))
 		placeholders = append(placeholders, "?")
 		values = append(values, fieldValue.Interface())
 	}
 
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-		safeMySQLNaming(tableName),
+		util.SafeMySQLNaming(tableName),
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "))
 
@@ -210,13 +192,13 @@ func Read(DB *sqlx.DB, record any, id any, preloads ...string) error {
 
 	// Get table name (optimized)
 	var tableName string
-	if tableNamer, ok := record.(TableNamer); ok {
+	if tableNamer, ok := record.(interfaces.TableNamer); ok {
 		tableName = tableNamer.TableName()
 	} else {
 		_, tableName = queryapi.GetTableName(record)
 	}
 
-	query := fmt.Sprintf("SELECT * FROM %s WHERE ID = ?", safeMySQLNaming(tableName))
+	query := fmt.Sprintf("SELECT * FROM %s WHERE ID = ?", util.SafeMySQLNaming(tableName))
 	err := DB.Get(record, query, id)
 	if err != nil {
 		logging.Logger.Error("Read error", zap.String("table", tableName), zap.Error(err), zap.Any("id", id))
@@ -228,7 +210,7 @@ func Read(DB *sqlx.DB, record any, id any, preloads ...string) error {
 func Update(DB *sqlx.DB, model any, fieldsParams ...map[string]any) error {
 	// Get table name (optimized)
 	var tableName string
-	if tableNamer, ok := model.(TableNamer); ok {
+	if tableNamer, ok := model.(interfaces.TableNamer); ok {
 		tableName = tableNamer.TableName()
 	} else {
 		_, tableName = queryapi.GetTableName(model)
@@ -238,7 +220,7 @@ func Update(DB *sqlx.DB, model any, fieldsParams ...map[string]any) error {
 	if len(fieldsParams) > 0 && fieldsParams[0] != nil {
 		// Get ID (optimized)
 		var id interface{}
-		if idGetter, ok := model.(IDGetter); ok {
+		if idGetter, ok := model.(interfaces.IDGetter); ok {
 			id = idGetter.GetID()
 		} else {
 			// Fallback to reflection
@@ -257,9 +239,9 @@ func Update(DB *sqlx.DB, model any, fieldsParams ...map[string]any) error {
 	}
 
 	// Full record update - try optimized approach first
-	if fieldMapper, ok := model.(FieldMapper); ok {
+	if fieldMapper, ok := model.(interfaces.FieldMapper); ok {
 		var id interface{}
-		if idGetter, ok := model.(IDGetter); ok {
+		if idGetter, ok := model.(interfaces.IDGetter); ok {
 			id = idGetter.GetID()
 		} else {
 			return fmt.Errorf("model must implement IDGetter for full update")
@@ -297,12 +279,12 @@ func updateWithFieldMap(DB *sqlx.DB, tableName string, id interface{}, fieldMap 
 	}
 
 	for k, v := range fieldMap {
-		setClauses = append(setClauses, fmt.Sprintf("%s = ?", safeMySQLNaming(k)))
+		setClauses = append(setClauses, fmt.Sprintf("%s = ?", util.SafeMySQLNaming(k)))
 		values = append(values, v)
 	}
 
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE ID = ?",
-		safeMySQLNaming(tableName),
+		util.SafeMySQLNaming(tableName),
 		strings.Join(setClauses, ", "))
 
 	values = append(values, id)
@@ -340,7 +322,7 @@ func updateWithReflection(DB *sqlx.DB, model any, tableName string) error {
 			continue
 		}
 
-		setClauses = append(setClauses, fmt.Sprintf("%s = ?", safeMySQLNaming(field.Name)))
+		setClauses = append(setClauses, fmt.Sprintf("%s = ?", util.SafeMySQLNaming(field.Name)))
 		values = append(values, fieldValue.Interface())
 	}
 
@@ -349,7 +331,7 @@ func updateWithReflection(DB *sqlx.DB, model any, tableName string) error {
 	}
 
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE ID = ?",
-		safeMySQLNaming(tableName),
+		util.SafeMySQLNaming(tableName),
 		strings.Join(setClauses, ", "))
 
 	values = append(values, whereValue)
@@ -365,7 +347,7 @@ func updateWithReflection(DB *sqlx.DB, model any, tableName string) error {
 func Delete(DB *sqlx.DB, record any) error {
 	// Get table name (optimized)
 	var tableName string
-	if tableNamer, ok := record.(TableNamer); ok {
+	if tableNamer, ok := record.(interfaces.TableNamer); ok {
 		tableName = tableNamer.TableName()
 	} else {
 		_, tableName = queryapi.GetTableName(record)
@@ -373,7 +355,7 @@ func Delete(DB *sqlx.DB, record any) error {
 
 	// Get ID (optimized)
 	var id interface{}
-	if idGetter, ok := record.(IDGetter); ok {
+	if idGetter, ok := record.(interfaces.IDGetter); ok {
 		id = idGetter.GetID()
 	} else {
 		// Fallback to reflection
@@ -388,7 +370,7 @@ func Delete(DB *sqlx.DB, record any) error {
 		id = idField.Interface()
 	}
 
-	query := fmt.Sprintf("DELETE FROM %s WHERE ID = ?", safeMySQLNaming(tableName))
+	query := fmt.Sprintf("DELETE FROM %s WHERE ID = ?", util.SafeMySQLNaming(tableName))
 	_, err := DB.Exec(query, id)
 	if err != nil {
 		logging.Logger.Error("Delete error", zap.String("table", tableName), zap.Error(err), zap.Any("id", id))
@@ -400,7 +382,7 @@ func Delete(DB *sqlx.DB, record any) error {
 func DeleteAll(DB *sqlx.DB, record any, ids ...any) error {
 	// Get table name (optimized)
 	var tableName string
-	if tableNamer, ok := record.(TableNamer); ok {
+	if tableNamer, ok := record.(interfaces.TableNamer); ok {
 		tableName = tableNamer.TableName()
 	} else {
 		_, tableName = queryapi.GetTableName(record)
@@ -415,7 +397,7 @@ func DeleteAll(DB *sqlx.DB, record any, ids ...any) error {
 	placeholders = placeholders[:len(placeholders)-1] // Remove trailing comma
 
 	query := fmt.Sprintf("DELETE FROM %s WHERE ID IN (%s)",
-		safeMySQLNaming(tableName),
+		util.SafeMySQLNaming(tableName),
 		placeholders)
 
 	_, err := DB.Exec(query, ids...)
@@ -423,9 +405,4 @@ func DeleteAll(DB *sqlx.DB, record any, ids ...any) error {
 		logging.Logger.Error("DeleteAll error", zap.String("table", tableName), zap.Error(err), zap.Any("ids", ids))
 	}
 	return err
-}
-
-// safeMySQLNaming wraps column/table names with backticks for MySQL
-func safeMySQLNaming(data string) string {
-	return "`" + data + "`"
 }

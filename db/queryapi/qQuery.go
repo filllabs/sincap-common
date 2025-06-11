@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/filllabs/sincap-common/db/util"
 	"github.com/filllabs/sincap-common/logging"
 	"go.uber.org/zap"
 )
@@ -32,7 +33,7 @@ func generateQQueryWithJoins(structType reflect.Type, tableName string, q string
 	taggedFields := getQapiFields(structType)
 	for _, field := range *taggedFields {
 		if field.Typ.Kind() != reflect.Struct {
-			where = append(where, column(tableName, field.Field.Name)+" LIKE ?")
+			where = append(where, util.Column(tableName, field.Field.Name)+" LIKE ?")
 			values = append(values, strings.Replace(field.Tag, "*", q, 1))
 			continue
 		}
@@ -62,7 +63,7 @@ func generateQQueryWithJoins(structType reflect.Type, tableName string, q string
 		}
 
 		// Fallback to subquery approach (no joins)
-		cond = append(cond, column(tableName, field.Field.Name+"ID"), "IN (", "SELECT ", column(field.TableName, "ID"), " FROM", safeMySQLNaming(field.TableName), "WHERE (")
+		cond = append(cond, util.Column(tableName, field.Field.Name+"ID"), "IN (", "SELECT ", util.Column(field.TableName, "ID"), " FROM", util.SafeMySQLNaming(field.TableName), "WHERE (")
 		cond = append(cond, strings.Join(w, " OR "))
 		cond = append(cond, ")", ")")
 		where = append(where, strings.Join(cond, " "))
