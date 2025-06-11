@@ -2,12 +2,14 @@
 
 common libs, utils
 
-- [chi](https://github.com/go-chi/chi) for routing.
-- [structs](https://github.com/fatih/structs) for reflection.
-- [zap](https://github.com/uber-go/zap) for logging.
-- [melody](https://github.com/olahol/melody) for websockets.
-- [gorm](https://github.com/jinzhu/gorm) for persisting.
-- [testify](https://github.com/stretchr/testify) for asserting.
+- [chi](https://github.com/go-chi/chi) for routing
+- [structs](https://github.com/fatih/structs) for reflection
+- [zap](https://github.com/uber-go/zap) for logging
+- [melody](https://github.com/olahol/melody) for websockets
+- [sqlx](https://github.com/jmoiron/sqlx) for database operations
+- [mysql driver](https://github.com/go-sql-driver/mysql) for MySQL connectivity
+- [goose](https://github.com/pressly/goose) for database migrations
+- [testify](https://github.com/stretchr/testify) for asserting
 
 # Test
 
@@ -15,6 +17,15 @@ common libs, utils
 go get -u github.com/gophertown/looper
 looper
 ```
+
+
+## 🚀 Key Features
+
+- **High-Performance Database Layer**: Migrated from GORM to sqlx for performance improvements
+- **Query API**: Advanced filtering, sorting, pagination, and full-text search
+- **Interface-Based Optimizations**: Optional interfaces for maximum performance
+- **Relationship Support**: Manual joins and relationship queries
+- **Migration Ready**: Goose integration for database migrations
 
 
 ## Query API
@@ -85,3 +96,179 @@ GET /cars?_offset=10&_limit=5
 * Add `_q`.
 
 ```GET /cars?_q=nissan```
+
+
+## Database Configuration
+
+```go
+import (
+    "github.com/filllabs/sincap-common/db"
+    "github.com/filllabs/sincap-common/db/mysql"
+    "github.com/filllabs/sincap-common/db/queryapi"
+)
+
+// Configure database
+configs := []db.Config{
+    {
+        Name: "default",
+        Args: []string{"user:password@tcp(localhost:3306)/database?parseTime=true"},
+    },
+}
+db.Configure(configs)
+database := db.DB()
+```
+
+### Basic CRUD Operations
+
+```go
+// Create
+user := &User{Name: "John", Email: "john@example.com"}
+err := mysql.Create(database, user)
+
+// Read
+var user User
+err := mysql.Read(database, &user, 1)
+
+// Update
+user.Name = "Jane"
+err := mysql.Update(database, &user)
+
+// Delete
+err := mysql.Delete(database, &user)
+
+// List with query
+var users []User
+count, err := mysql.List(database, &users, nil)
+```
+
+### Performance Optimization
+
+Implement these interfaces on your models for maximum performance:
+
+```go
+type User struct {
+    ID    uint   `db:"ID"`
+    Name  string `db:"Name"`
+    Email string `db:"Email"`
+}
+
+// TableNamer - eliminates reflection for table name
+func (User) TableName() string { return "User" }
+
+// IDGetter - eliminates reflection for ID access
+func (u User) GetID() interface{} { return u.ID }
+
+// IDSetter - eliminates reflection for ID setting
+func (u *User) SetID(id interface{}) error {
+    if idVal, ok := id.(uint64); ok {
+        u.ID = uint(idVal)
+        return nil
+    }
+    return fmt.Errorf("invalid ID type")
+}
+
+// FieldMapper - eliminates reflection for CRUD operations
+func (u User) GetFieldMap() map[string]interface{} {
+    return map[string]interface{}{
+        "ID":    u.ID,
+        "Name":  u.Name,
+        "Email": u.Email,
+    }
+}
+```
+
+### Programmatic Usage
+
+```go
+import "github.com/filllabs/sincap-common/middlewares/qapi"
+
+query := &qapi.Query{
+    Limit:  10,
+    Offset: 0,
+    Sort:   []string{"Name ASC", "CreatedAt DESC"},
+    Filter: []qapi.Filter{
+        {Name: "Age", Operation: qapi.GT, Value: "25"},
+        {Name: "Status", Operation: qapi.EQ, Value: "active"},
+        {Name: "Name", Operation: qapi.LK, Value: "John"},
+    },
+    Q: []string{"developer"}, // Full-text search
+}
+
+var users []User
+count, err := mysql.List(database, &users, query)
+```
+
+### Relationship Queries
+
+For queries involving relationships, use the join registry system:
+
+```go
+import "github.com/filllabs/sincap-common/db/queryapi"
+
+// Set up join registry
+joinRegistry := queryapi.NewJoinRegistry()
+joinRegistry.Register("Profile", queryapi.JoinConfig{
+    Type:       queryapi.OneToOne,
+    Table:      "Profile",
+    LocalKey:   "ID",
+    ForeignKey: "UserID",
+})
+
+// Query with relationship filters
+query := &qapi.Query{
+    Filter: []qapi.Filter{
+        {Name: "Profile.Bio", Operation: qapi.LK, Value: "developer"},
+    },
+}
+
+options := &queryapi.QueryOptions{JoinRegistry: joinRegistry}
+result, err := queryapi.GenerateDBWithOptions(query, User{}, options)
+```
+
+## 🗄️ Database Migrations
+
+This library uses Goose for database migrations:
+
+```bash
+# Install Goose
+go install github.com/pressly/goose/v3/cmd/goose@latest
+
+# Create migration
+goose -dir ./migrations create create_users_table sql
+
+# Run migrations
+goose -dir ./migrations up
+
+# Check status
+goose -dir ./migrations status
+```
+
+
+## 📚 Documentation
+
+For detailed information, see:
+
+- **[`EXAMPLES.md`](./EXAMPLES.md)** - Comprehensive examples and practical usage patterns
+- **[`MIGRATION.md`](./MIGRATION.md)** - Complete GORM to sqlx migration guide with detailed relationship handling
+
+## 🎯 Migration from GORM
+
+If you're migrating from GORM, the API remains largely the same:
+
+**Before (GORM):**
+```go
+db.Create(&user)
+db.Find(&users)
+db.Where("age > ?", 25).Find(&users)
+```
+
+**After (sqlx):**
+```go
+mysql.Create(db, &user)
+mysql.List(db, &users, nil)
+mysql.List(db, &users, &qapi.Query{
+    Filter: []qapi.Filter{
+        {Name: "age", Operation: qapi.GT, Value: "25"},
+    },
+})
+```

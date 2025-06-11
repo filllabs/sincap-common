@@ -74,8 +74,8 @@ func TestFilter2SqlWithJoins(t *testing.T) {
 	registry.Register("InnerF", JoinConfig{
 		Type:       OneToOne,
 		Table:      "Inner1",
-		LocalKey:   "ID",       // PascalCase
-		ForeignKey: "SampleID", // PascalCase
+		LocalKey:   "ID",
+		ForeignKey: "SampleID",
 	})
 
 	typ, tableName := GetTableName(Sample{})

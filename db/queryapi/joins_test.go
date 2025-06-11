@@ -124,7 +124,7 @@ func TestJoinRegistry_DefaultJoinType(t *testing.T) {
 	}
 }
 
-func TestGenerateSQLWithJoins(t *testing.T) {
+func TestGenerateDBWithJoins(t *testing.T) {
 	// Set up join registry
 	registry := NewJoinRegistry()
 	registry.Register("InnerF", JoinConfig{
@@ -149,7 +149,7 @@ func TestGenerateSQLWithJoins(t *testing.T) {
 
 	result, err := GenerateDBWithOptions(query, Sample{}, options)
 	if err != nil {
-		t.Errorf("GenerateSQLWithOptions() error = %v", err)
+		t.Errorf("GenerateDBWithOptions() error = %v", err)
 		return
 	}
 
@@ -167,8 +167,8 @@ func TestGenerateSQLWithJoins(t *testing.T) {
 	t.Logf("Generated Args: %v", result.Args)
 }
 
-func TestGenerateSQL_BackwardCompatibility(t *testing.T) {
-	// Test that the old GenerateSQL function still works for simple queries
+func TestGenerateDB_BackwardCompatibility(t *testing.T) {
+	// Test that the old GenerateDB function still works for simple queries
 	query := &qapi.Query{
 		Filter: []qapi.Filter{
 			{Name: "Name", Value: "John", Operation: qapi.EQ},
@@ -178,7 +178,7 @@ func TestGenerateSQL_BackwardCompatibility(t *testing.T) {
 
 	result, err := GenerateDB(query, Sample{})
 	if err != nil {
-		t.Errorf("GenerateSQL() error = %v", err)
+		t.Errorf("GenerateDB() error = %v", err)
 		return
 	}
 
