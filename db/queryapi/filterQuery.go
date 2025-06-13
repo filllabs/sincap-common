@@ -58,7 +58,8 @@ func filter2SqlWithJoins(filters []qapi.Filter, typ reflect.Type, tableName stri
 
 		}
 		where = append(where, strings.Join(condition, " "))
-		kind := reflection.ExtractRealTypeField(targetField.Type).Kind()
+		fieldType := reflection.ExtractRealTypeField(targetField.Type)
+		kind := fieldType.Kind()
 
 		// Use proper value conversion based on field type
 		switch filter.Operation {
@@ -66,7 +67,7 @@ func filter2SqlWithJoins(filters []qapi.Filter, typ reflect.Type, tableName stri
 			inVals := strings.Split(filter.Value, "|")
 			for i := 0; i < len(inVals); i++ {
 				var err error
-				values, err = util.ConvertValue(filter, typ, kind, values, inVals[i])
+				values, err = util.ConvertValue(filter, fieldType, kind, values, inVals[i])
 				if err != nil {
 					return "", values, relationshipPaths, err
 				}
@@ -75,14 +76,14 @@ func filter2SqlWithJoins(filters []qapi.Filter, typ reflect.Type, tableName stri
 			inVals := strings.Split(filter.Value, "*")
 			for i := 0; i < len(inVals); i++ {
 				var err error
-				values, err = util.ConvertValue(filter, typ, kind, values, inVals[i])
+				values, err = util.ConvertValue(filter, fieldType, kind, values, inVals[i])
 				if err != nil {
 					return "", values, relationshipPaths, err
 				}
 			}
 		default:
 			var err error
-			values, err = util.ConvertValue(filter, typ, kind, values, filter.Value)
+			values, err = util.ConvertValue(filter, fieldType, kind, values, filter.Value)
 			if err != nil {
 				return "", values, relationshipPaths, err
 			}

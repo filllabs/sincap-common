@@ -3,22 +3,31 @@ package translations
 import (
 	"time"
 
-	"github.com/patrickmn/go-cache"
-	"gorm.io/gorm"
+	"github.com/jmoiron/sqlx"
 )
 
-var langCodesCACHE = cache.New(5*time.Minute, 10*time.Minute)
+// Simple in-memory cache for language codes
+var langCodesCache []string
+var langCodesCacheTime time.Time
+var cacheDuration = 5 * time.Minute
 
-func ListCodes(db *gorm.DB) ([]string, error) {
-	value, found := langCodesCACHE.Get("langCodes")
-	if found {
-		return value.([]string), nil
+// ListCodes retrieves all language codes from the database with simple caching
+func ListCodes(db *sqlx.DB) ([]string, error) {
+	// Check if cache is still valid
+	if time.Since(langCodesCacheTime) < cacheDuration && len(langCodesCache) > 0 {
+		return langCodesCache, nil
 	}
+
+	// Query the database for language codes
 	var codes []string
-	err := db.Table("Language").Pluck("code", &codes).Error
+	err := db.Select(&codes, "SELECT code FROM Language")
 	if err != nil {
 		return nil, err
 	}
-	langCodesCACHE.Set("langCodes", codes, 5*time.Minute)
+
+	// Update cache
+	langCodesCache = codes
+	langCodesCacheTime = time.Now()
+
 	return codes, nil
 }

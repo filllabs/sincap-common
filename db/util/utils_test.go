@@ -1,9 +1,11 @@
 package util
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/filllabs/sincap-common/middlewares/qapi"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConvertValueOptimized(t *testing.T) {
@@ -132,5 +134,172 @@ func BenchmarkConvertValueByType(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ConvertValueByType("123", "int")
+	}
+}
+
+func TestConvertValue_Boolean(t *testing.T) {
+	filter := qapi.Filter{Name: "IsActive", Operation: qapi.EQ}
+	boolType := reflect.TypeOf(true)
+	boolKind := boolType.Kind()
+
+	tests := []struct {
+		name     string
+		value    string
+		expected bool
+		hasError bool
+	}{
+		{
+			name:     "string true",
+			value:    "true",
+			expected: true,
+			hasError: false,
+		},
+		{
+			name:     "string false",
+			value:    "false",
+			expected: false,
+			hasError: false,
+		},
+		{
+			name:     "numeric 1",
+			value:    "1",
+			expected: true,
+			hasError: false,
+		},
+		{
+			name:     "numeric 0",
+			value:    "0",
+			expected: false,
+			hasError: false,
+		},
+		{
+			name:     "invalid value",
+			value:    "invalid",
+			expected: false,
+			hasError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var values []interface{}
+			result, err := ConvertValue(filter, boolType, boolKind, values, tt.value)
+
+			if tt.hasError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Len(t, result, 1)
+				assert.Equal(t, tt.expected, result[0])
+			}
+		})
+	}
+}
+
+func TestConvertStringValue_Boolean(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected interface{}
+	}{
+		{
+			name:     "string true",
+			value:    "true",
+			expected: true,
+		},
+		{
+			name:     "string false",
+			value:    "false",
+			expected: false,
+		},
+		{
+			name:     "numeric 1 (should be int)",
+			value:    "1",
+			expected: 1, // convertStringValue prioritizes int over bool
+		},
+		{
+			name:     "numeric 0 (should be int)",
+			value:    "0",
+			expected: 0, // convertStringValue prioritizes int over bool
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var values []interface{}
+			result, err := convertStringValue(values, tt.value)
+
+			assert.NoError(t, err)
+			assert.Len(t, result, 1)
+			assert.Equal(t, tt.expected, result[0])
+		})
+	}
+}
+
+func TestConvertValueByType_Boolean(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected bool
+	}{
+		{
+			name:     "string true",
+			value:    "true",
+			expected: true,
+		},
+		{
+			name:     "string false",
+			value:    "false",
+			expected: false,
+		},
+		{
+			name:     "numeric 1",
+			value:    "1",
+			expected: true,
+		},
+		{
+			name:     "numeric 0",
+			value:    "0",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := ConvertValueByType(tt.value, "bool")
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestBooleanFilteringIntegration(t *testing.T) {
+	// This test demonstrates that boolean filtering works with both string and numeric representations
+	filter := qapi.Filter{Name: "IsActive", Operation: qapi.EQ}
+	boolType := reflect.TypeOf(true)
+	boolKind := boolType.Kind()
+
+	// Test cases that should work in real filtering scenarios
+	testCases := []struct {
+		name     string
+		value    string
+		expected bool
+	}{
+		{"_filter=IsActive=true", "true", true},
+		{"_filter=IsActive=false", "false", false},
+		{"_filter=IsActive=1", "1", true},
+		{"_filter=IsActive=0", "0", false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var values []interface{}
+			result, err := ConvertValue(filter, boolType, boolKind, values, tc.value)
+
+			assert.NoError(t, err, "Boolean conversion should not fail")
+			assert.Len(t, result, 1, "Should have exactly one converted value")
+			assert.Equal(t, tc.expected, result[0], "Boolean value should be correctly converted")
+		})
 	}
 }

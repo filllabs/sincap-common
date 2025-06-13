@@ -23,9 +23,9 @@ func NewSqlxService(dbCtxKey string) SqlxService {
 }
 
 // List retrieves a collection of records based on the query parameters
-func (s *SqlxService) List(ctx context.Context, record any, query *qapi.Query) (int, error) {
+func (s *SqlxService) List(ctx context.Context, record any, query *qapi.Query, lang ...string) (int, error) {
 	db := ctx.Value(s.dbCtxKey).(*sqlx.DB)
-	return s.repository.List(db, record, query)
+	return s.repository.List(db, record, query, lang...)
 }
 
 // Read retrieves a single record by its ID

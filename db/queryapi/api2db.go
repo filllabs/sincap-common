@@ -51,25 +51,45 @@ func GenerateDBWithOptions(q *qapi.Query, entity interface{}, options *QueryOpti
 	// Handle sorting
 	if len(q.Sort) > 0 {
 		for _, s := range q.Sort {
-			values := strings.Split(s, " ")
-			fieldNames := strings.Split(values[0], ".")
-			field, isFieldFound := typ.FieldByName(fieldNames[0])
-			if isFieldFound {
-				dp := reflection.DepointerField(field.Type)
-				if dp == jsonType {
-					orderClause := fmt.Sprintf("CAST(%s.%s->'$.%s' AS CHAR) %s",
-						util.SafeMySQLNaming(tableName),
-						util.SafeMySQLNaming(fieldNames[0]),
-						fieldNames[1],
-						values[1])
-					orderClauses = append(orderClauses, orderClause)
-				} else {
-					orderClause := fmt.Sprintf("%s %s",
-						util.SafeMySQLNaming(strings.Join(fieldNames, "__")),
-						values[1])
-					orderClauses = append(orderClauses, orderClause)
-				}
+			// Check if this is already a complex sort expression (contains CASE, JSON functions, etc.)
+			if strings.Contains(strings.ToUpper(s), "CASE") ||
+				strings.Contains(strings.ToUpper(s), "JSON_") ||
+				strings.Contains(s, "(") {
+				// This is already a formatted sort expression, use it as-is
+				orderClauses = append(orderClauses, s)
+				continue
 			}
+
+			var direction string
+			var fieldName string
+
+			// Parse the sort clause to extract field name and direction
+			parts := strings.Fields(s)
+			if len(parts) >= 2 {
+				// Traditional format: "fieldName direction"
+				fieldName = parts[0]
+				if strings.ToUpper(parts[1]) == "DESC" {
+					direction = "DESC"
+				} else {
+					direction = "ASC"
+				}
+			} else if strings.HasPrefix(s, "+") {
+				// Prefix format: "+fieldName"
+				direction = "ASC"
+				fieldName = strings.TrimPrefix(s, "+")
+			} else if strings.HasPrefix(s, "-") {
+				// Prefix format: "-fieldName"
+				direction = "DESC"
+				fieldName = strings.TrimPrefix(s, "-")
+			} else {
+				// Default to ASC if no direction specified
+				fieldName = s
+				direction = "ASC"
+			}
+
+			// Simple approach: just use field name with direction
+			orderClause := fmt.Sprintf("%s %s", fieldName, direction)
+			orderClauses = append(orderClauses, orderClause)
 		}
 	}
 

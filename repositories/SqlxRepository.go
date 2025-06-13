@@ -11,8 +11,8 @@ type SqlxRepository struct {
 }
 
 // List retrieves a list of records based on the given query and preloads
-func (rep *SqlxRepository) List(db *sqlx.DB, records any, query *qapi.Query) (int, error) {
-	return mysql.List(db, records, query)
+func (rep *SqlxRepository) List(db *sqlx.DB, records any, query *qapi.Query, lang ...string) (int, error) {
+	return mysql.List(db, records, query, lang...)
 }
 
 // Read retrieves a single record by its ID with optional preloads

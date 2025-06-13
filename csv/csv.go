@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var timeKind = reflect.TypeOf(time.Time{}).Kind()
+var timeType = reflect.TypeOf(time.Time{})
 
 const timeLayout = "02.01.2006"
 
@@ -144,11 +144,38 @@ func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter ru
 				continue
 			}
 			isPtr := false
-			kind := field.Type().Kind()
+			fieldType := field.Type()
+			kind := fieldType.Kind()
 			if kind == reflect.Ptr {
-				kind = field.Type().Elem().Kind()
+				fieldType = fieldType.Elem()
+				kind = fieldType.Kind()
 				isPtr = true
 			}
+
+			// Check for time.Time type specifically
+			if fieldType == timeType {
+				i, e := strconv.ParseInt(value, 10, 64)
+				if e != nil {
+					t, eT := time.Parse(timeLayout, value)
+					if eT != nil {
+						return fmt.Errorf(`field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v" \n "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e, eT)
+					}
+					if isPtr {
+						field.Set(reflect.ValueOf(&t))
+					} else {
+						field.Set(reflect.ValueOf(t))
+					}
+				} else {
+					timeValue := time.Unix(0, i*int64(time.Millisecond))
+					if isPtr {
+						field.Set(reflect.ValueOf(&timeValue))
+					} else {
+						field.Set(reflect.ValueOf(timeValue))
+					}
+				}
+				continue
+			}
+
 			switch kind {
 			case reflect.String:
 				field.SetString(value)
@@ -182,21 +209,6 @@ func ReadWithCallback(r io.Reader, t interface{}, hasTitleRow bool, delimiter ru
 				}
 			case reflect.Bool:
 				field.SetBool(value == "true")
-			case timeKind:
-				i, e := strconv.ParseInt(value, 10, 64)
-				if e != nil {
-					t, eT := time.Parse(timeLayout, value)
-					if eT != nil {
-						return fmt.Errorf(`field type converting error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s". Error: "%v" \n "%v"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex], e, eT)
-					}
-					if isPtr {
-						field.Set(reflect.ValueOf(&t))
-					} else {
-						field.Set(reflect.ValueOf(t))
-					}
-				} else {
-					field.Set(reflect.ValueOf(time.Unix(0, i*int64(time.Millisecond))))
-				}
 			default:
 				return fmt.Errorf(`field type converting NOT FOUND error.Coordinates: "%d:%d" Type: "%s" Field: "%s" Value: "%s"`, rowIndex, fIndex, typ.Name(), field.String(), row[fIndex])
 			}

@@ -54,12 +54,36 @@ func (t *Translations) Unmarshal(data []byte) error {
 
 // Scan implements the sql.Scanner interface for reading from the database.
 func (t *Translations) Scan(value any) error {
+	if value == nil {
+		return nil
+	}
+
 	bytes, ok := value.([]byte)
 	if !ok {
 		return errors.New("unsupported type for Translations")
 	}
 
-	return t.Unmarshal(bytes)
+	// Handle empty values
+	if len(bytes) == 0 {
+		return nil
+	}
+
+	// Try to unmarshal as JSON first
+	if t.data == nil {
+		t.data = make(map[string]string)
+	}
+
+	// Check if it's valid JSON by trying to unmarshal
+	err := json.Unmarshal(bytes, &t.data)
+	if err != nil {
+		// If JSON unmarshaling fails, treat it as a plain string
+		// Store it with the DEFAULT_LANG_CODE as the key
+		t.data = make(map[string]string)
+		t.data[DEFAULT_LANG_CODE] = string(bytes)
+		return nil
+	}
+
+	return nil
 }
 
 // Value implements the driver.Valuer interface for writing to the database.

@@ -9,7 +9,7 @@ import (
 	"github.com/filllabs/sincap-common/middlewares/qapi"
 )
 
-var timeKind = reflect.TypeOf(time.Time{}).Kind()
+var timeType = reflect.TypeOf(time.Time{})
 
 // ValueConverter interface for types that can convert themselves
 type ValueConverter interface {
@@ -57,8 +57,9 @@ func convertStringValue(values []interface{}, value string) ([]interface{}, erro
 	}
 
 	// Boolean
-	if value == "true" || value == "false" {
-		values = append(values, value == "true")
+	if value == "true" || value == "false" || value == "1" || value == "0" {
+		boolValue := value == "true" || value == "1"
+		values = append(values, boolValue)
 		return values, nil
 	}
 
@@ -82,6 +83,17 @@ func ConvertValue(filter qapi.Filter, typ reflect.Type, kind reflect.Kind, value
 		// Do not add anything
 		return values, nil
 	}
+
+	// Check for time.Time type specifically
+	if typ == timeType {
+		i, err := strconv.ParseInt(value.(string), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("QApi cannot parse date: %s for %s. Cause: %v", value.(string), filter.Name, err)
+		}
+		values = append(values, time.Unix(0, i*int64(time.Millisecond)))
+		return values, nil
+	}
+
 	switch kind {
 	case reflect.String:
 		values = append(values, value)
@@ -107,13 +119,15 @@ func ConvertValue(filter qapi.Filter, typ reflect.Type, kind reflect.Kind, value
 			values = append(values, i)
 		}
 	case reflect.Bool:
-		values = append(values, value.(string) == "true")
-	case timeKind:
-		i, err := strconv.ParseInt(value.(string), 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("QApi cannot parse date: %s for %s. Cause: %v", value.(string), filter.Name, err)
+		// Handle both string and numeric representations of boolean values
+		strValue := value.(string)
+		if strValue == "true" || strValue == "1" {
+			values = append(values, true)
+		} else if strValue == "false" || strValue == "0" {
+			values = append(values, false)
+		} else {
+			return nil, fmt.Errorf("invalid boolean value: %s for field %s", strValue, filter.Name)
 		}
-		values = append(values, time.Unix(0, i*int64(time.Millisecond)))
 	default:
 		return nil, fmt.Errorf("field type not supported for QApi %s : %s", typ.Name(), filter.Name)
 	}
@@ -133,7 +147,7 @@ func ConvertValueByType(value string, targetType string) (interface{}, error) {
 	case "float32", "float64":
 		return strconv.ParseFloat(value, 64)
 	case "bool":
-		return value == "true", nil
+		return value == "true" || value == "1", nil
 	case "time":
 		i, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
