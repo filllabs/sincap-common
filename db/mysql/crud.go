@@ -183,16 +183,39 @@ func List(DB *sqlx.DB, records any, query *qapi.Query, lang ...string) (int, err
 	useTranslations := len(langCode) > 0 && langCode != ""
 	multiLangFields := findTranslationFields(records)
 
+	// Create join registry from preloads if none provided and preloads exist
+	var joinRegistry *queryapi.JoinRegistry
+	if query.JoinRegistry != nil {
+		// Convert interface to concrete type
+		if jr, ok := query.JoinRegistry.(*queryapi.JoinRegistry); ok {
+			joinRegistry = jr
+		}
+	}
+
+	if joinRegistry == nil && len(query.Preloads) > 0 {
+		// Try to create join registry from struct tags first
+		recordType := reflect.TypeOf(records)
+		joinRegistry = createJoinRegistryFromTags(recordType, query.Preloads)
+
+		// If no tags found, fall back to automatic joins
+		if !joinRegistry.HasJoins() {
+			joinRegistry = createJoinRegistryFromPreloads(query.Preloads)
+		}
+	}
+
 	// Generate SQL query with or without translation support
 	var queryResult *queryapi.QueryResult
 	var err error
 
 	if useTranslations && len(multiLangFields) > 0 {
 		// Use custom query generation that handles translation fields properly
-		queryResult, err = generateTranslationAwareQuery(query, records, langCode, multiLangFields)
+		queryResult, err = generateTranslationAwareQueryWithJoins(query, records, langCode, multiLangFields, joinRegistry)
 	} else {
-		// Use standard query generation
-		queryResult, err = queryapi.GenerateDB(query, records)
+		// Use standard query generation with join support
+		options := &queryapi.QueryOptions{
+			JoinRegistry: joinRegistry,
+		}
+		queryResult, err = queryapi.GenerateDBWithOptions(query, records, options)
 	}
 
 	if err != nil {
@@ -222,8 +245,253 @@ func List(DB *sqlx.DB, records any, query *qapi.Query, lang ...string) (int, err
 	return int(count), nil
 }
 
-// generateTranslationAwareQuery creates a custom query that handles translation fields without type conversion issues
-func generateTranslationAwareQuery(query *qapi.Query, records any, langCode string, multiLangFields []string) (*queryapi.QueryResult, error) {
+// Read Record (optimized with interfaces, fallback to reflection)
+func Read(DB *sqlx.DB, record any, id any, preloads ...string) error {
+	tableName := getTableName(record)
+
+	// Create join registry from preloads if preloads exist
+	var joinRegistry *queryapi.JoinRegistry
+	if len(preloads) > 0 {
+		// Try to create join registry from struct tags first
+		recordType := reflect.TypeOf(record)
+		joinRegistry = createJoinRegistryFromTags(recordType, preloads)
+
+		// If no tags found, fall back to automatic joins
+		if !joinRegistry.HasJoins() {
+			joinRegistry = createJoinRegistryFromPreloads(preloads)
+		}
+	}
+
+	var query string
+	var args []interface{}
+
+	if joinRegistry != nil && len(preloads) > 0 {
+		// Build query with joins
+		baseQuery := fmt.Sprintf("SELECT * FROM %s", util.SafeMySQLNaming(tableName))
+
+		// Build joins for preloads
+		joinQuery, joinWheres, err := joinRegistry.BuildJoinQuery(baseQuery, tableName, preloads)
+		if err != nil {
+			logging.Logger.Error("Read join error", zap.String("table", tableName), zap.Error(err), zap.Any("id", id))
+			return err
+		}
+
+		query = joinQuery + " WHERE " + util.SafeMySQLNaming(tableName) + ".ID = ?"
+		args = append(args, id)
+
+		// Add join where conditions
+		if len(joinWheres) > 0 {
+			query += " AND " + strings.Join(joinWheres, " AND ")
+		}
+	} else {
+		// Simple query without joins
+		query = fmt.Sprintf("SELECT * FROM %s WHERE ID = ?", util.SafeMySQLNaming(tableName))
+		args = append(args, id)
+	}
+
+	err := DB.Get(record, query, args...)
+	if err != nil {
+		logging.Logger.Error("Read error", zap.String("table", tableName), zap.Error(err), zap.Any("id", id))
+	}
+	return err
+}
+
+// createJoinRegistryFromPreloads creates a basic join registry from preload strings
+// Updated for singular PascalCase naming conventions and struct tag support
+func createJoinRegistryFromPreloads(preloads []string) *queryapi.JoinRegistry {
+	registry := queryapi.NewJoinRegistry()
+
+	for _, preload := range preloads {
+		// Use singular PascalCase for table names and column names
+		// Table: same as preload name (e.g., "Profile", "Order")
+		// Foreign Key: preload name + "ID" (e.g., "ProfileID", "OrderID")
+		registry.Register(preload, queryapi.JoinConfig{
+			Type:       queryapi.OneToMany, // Default relationship type
+			Table:      preload,            // e.g., "Profile", "Order"
+			LocalKey:   "ID",               // Parent table ID
+			ForeignKey: preload + "ID",     // e.g., "ProfileID", "OrderID"
+			JoinType:   queryapi.LeftJoin,
+		})
+	}
+
+	return registry
+}
+
+// createJoinRegistryFromTags creates a join registry by parsing struct tags
+// Supports GORM-like relationship definitions in struct tags
+func createJoinRegistryFromTags(recordType reflect.Type, preloads []string) *queryapi.JoinRegistry {
+	registry := queryapi.NewJoinRegistry()
+
+	// Handle pointer and slice types
+	if recordType.Kind() == reflect.Ptr {
+		recordType = recordType.Elem()
+	}
+	if recordType.Kind() == reflect.Slice {
+		recordType = recordType.Elem()
+		if recordType.Kind() == reflect.Ptr {
+			recordType = recordType.Elem()
+		}
+	}
+
+	if recordType.Kind() != reflect.Struct {
+		return registry
+	}
+
+	// Create a map of requested preloads for quick lookup
+	preloadMap := make(map[string]bool)
+	for _, preload := range preloads {
+		preloadMap[preload] = true
+	}
+
+	// Parse struct fields for join tags
+	for i := 0; i < recordType.NumField(); i++ {
+		field := recordType.Field(i)
+
+		// Skip if this field is not in the preloads list
+		if len(preloads) > 0 && !preloadMap[field.Name] {
+			continue
+		}
+
+		// Look for join tag
+		joinTag := field.Tag.Get("join")
+		if joinTag == "" {
+			continue
+		}
+
+		// Parse join tag
+		config, err := parseJoinTag(joinTag, field)
+		if err != nil {
+			logging.Logger.Warn("Failed to parse join tag",
+				zap.String("field", field.Name),
+				zap.String("tag", joinTag),
+				zap.Error(err))
+			continue
+		}
+
+		registry.Register(field.Name, config)
+	}
+
+	return registry
+}
+
+// parseJoinTag parses a join tag string into a JoinConfig
+// Supports formats like:
+// - "one2one,table:Profile,foreign_key:UserID"
+// - "one2many,table:Order,foreign_key:UserID"
+// - "many2many,table:Tag,through:UserTag,local_key:UserID,foreign_key:TagID"
+// - "polymorphic,table:Comment,id:CommentableID,type:CommentableType,value:User"
+func parseJoinTag(tag string, field reflect.StructField) (queryapi.JoinConfig, error) {
+	config := queryapi.JoinConfig{
+		JoinType: queryapi.LeftJoin, // Default join type
+	}
+
+	// Split tag by comma
+	parts := strings.Split(tag, ",")
+	if len(parts) == 0 {
+		return config, fmt.Errorf("empty join tag")
+	}
+
+	// First part is the relationship type
+	relType := strings.TrimSpace(parts[0])
+	switch relType {
+	case "one2one", "onetoone":
+		config.Type = queryapi.OneToOne
+	case "one2many", "onetomany":
+		config.Type = queryapi.OneToMany
+	case "many2many", "manytomany":
+		config.Type = queryapi.ManyToMany
+	case "polymorphic":
+		config.Type = queryapi.Polymorphic
+	default:
+		return config, fmt.Errorf("unsupported relationship type: %s", relType)
+	}
+
+	// Parse remaining parts as key:value pairs
+	for i := 1; i < len(parts); i++ {
+		part := strings.TrimSpace(parts[i])
+		kv := strings.SplitN(part, ":", 2)
+		if len(kv) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(kv[0])
+		value := strings.TrimSpace(kv[1])
+
+		switch key {
+		case "table":
+			config.Table = value
+		case "local_key":
+			config.LocalKey = value
+		case "foreign_key":
+			config.ForeignKey = value
+		case "through", "pivot_table":
+			config.PivotTable = value
+		case "pivot_local_key", "local_key_through":
+			config.PivotLocalKey = value
+		case "pivot_foreign_key", "foreign_key_through":
+			config.PivotForeignKey = value
+		case "id", "polymorphic_id":
+			config.PolymorphicID = value
+		case "type", "polymorphic_type":
+			config.PolymorphicType = value
+		case "value", "polymorphic_value":
+			config.PolymorphicValue = value
+		case "join_type":
+			switch strings.ToUpper(value) {
+			case "INNER", "INNER_JOIN":
+				config.JoinType = queryapi.InnerJoin
+			case "RIGHT", "RIGHT_JOIN":
+				config.JoinType = queryapi.RightJoin
+			default:
+				config.JoinType = queryapi.LeftJoin
+			}
+		}
+	}
+
+	// Set defaults based on relationship type
+	if config.Table == "" {
+		// Try to infer table name from field type
+		fieldType := field.Type
+		if fieldType.Kind() == reflect.Ptr {
+			fieldType = fieldType.Elem()
+		}
+		if fieldType.Kind() == reflect.Slice {
+			fieldType = fieldType.Elem()
+			if fieldType.Kind() == reflect.Ptr {
+				fieldType = fieldType.Elem()
+			}
+		}
+		if fieldType.Kind() == reflect.Struct {
+			config.Table = fieldType.Name()
+		}
+	}
+
+	// Set default keys
+	if config.LocalKey == "" {
+		config.LocalKey = "ID"
+	}
+
+	if config.Type == queryapi.OneToOne || config.Type == queryapi.OneToMany {
+		if config.ForeignKey == "" {
+			// Default foreign key pattern: ParentName + "ID"
+			config.ForeignKey = field.Name + "ID"
+		}
+	}
+
+	if config.Type == queryapi.ManyToMany {
+		if config.PivotLocalKey == "" {
+			config.PivotLocalKey = "UserID" // This could be made more dynamic
+		}
+		if config.PivotForeignKey == "" {
+			config.PivotForeignKey = field.Name + "ID"
+		}
+	}
+
+	return config, nil
+}
+
+// generateTranslationAwareQueryWithJoins extends translation-aware query generation with join support
+func generateTranslationAwareQueryWithJoins(query *qapi.Query, records any, langCode string, multiLangFields []string, joinRegistry *queryapi.JoinRegistry) (*queryapi.QueryResult, error) {
 	// Separate translation and non-translation filters
 	var translationFilters []qapi.Filter
 	var regularFilters []qapi.Filter
@@ -253,8 +521,11 @@ func generateTranslationAwareQuery(query *qapi.Query, records any, langCode stri
 		Preloads: query.Preloads,
 	}
 
-	// Generate SQL for regular filters
-	queryResult, err := queryapi.GenerateDB(regularQuery, records)
+	// Generate SQL for regular filters with join support
+	options := &queryapi.QueryOptions{
+		JoinRegistry: joinRegistry,
+	}
+	queryResult, err := queryapi.GenerateDBWithOptions(regularQuery, records, options)
 	if err != nil {
 		return nil, err
 	}
@@ -732,21 +1003,6 @@ func createWithReflection(DB *sqlx.DB, record any, tableName string) error {
 	}
 
 	return nil
-}
-
-// Read Record (optimized with interfaces, fallback to reflection)
-func Read(DB *sqlx.DB, record any, id any, preloads ...string) error {
-	// Note: preloads are ignored in sqlx implementation
-	// Users need to handle relationships manually
-
-	tableName := getTableName(record)
-
-	query := fmt.Sprintf("SELECT * FROM %s WHERE ID = ?", util.SafeMySQLNaming(tableName))
-	err := DB.Get(record, query, id)
-	if err != nil {
-		logging.Logger.Error("Read error", zap.String("table", tableName), zap.Error(err), zap.Any("id", id))
-	}
-	return err
 }
 
 // Update Updates the record with the given fields (optimized with interfaces, fallback to reflection)

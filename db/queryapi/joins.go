@@ -79,6 +79,11 @@ func (jr *JoinRegistry) Get(fieldPath string) (JoinConfig, bool) {
 	return config, exists
 }
 
+// HasJoins returns true if the registry has any registered joins
+func (jr *JoinRegistry) HasJoins() bool {
+	return len(jr.joins) > 0
+}
+
 // GenerateJoinSQL generates the JOIN clause and WHERE conditions for a relationship
 func (jr *JoinRegistry) GenerateJoinSQL(fieldPath, baseTable string) (joinClause string, whereClause string, err error) {
 	config, exists := jr.joins[fieldPath]

@@ -10,14 +10,15 @@ import (
 
 // Query holds parsed query params for the query
 type Query struct {
-	Q          string
-	Fields     []string
-	Preloads   []string
-	Offset     int
-	Limit      int
-	Sort       []string
-	Filter     []Filter
-	TotalCount int
+	Q            string
+	Fields       []string
+	Preloads     []string
+	Offset       int
+	Limit        int
+	Sort         []string
+	Filter       []Filter
+	TotalCount   int
+	JoinRegistry interface{} // Optional join registry for relationship queries (concrete type: *queryapi.JoinRegistry)
 }
 
 // Parse parses request query params and fills inside

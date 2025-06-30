@@ -1,8 +1,8 @@
-# Sincap-Common Examples
+# Sincap-Common Complete Guide
 
-Practical code examples for using sincap-common with sqlx for high-performance database operations.
+Comprehensive guide for using sincap-common with sqlx for high-performance database operations, including GORM-like preload functionality.
 
-## 🚀 Setup
+## 🚀 Quick Start
 
 ```go
 import (
@@ -24,31 +24,42 @@ db.Configure(configs)
 database := db.DB()
 ```
 
-## 📝 Model Examples
+## 📝 Model Definition
 
-### Optimized Model (Recommended)
+### Optimized Model with Relationships (Recommended)
 
-Implement performance interfaces for maximum efficiency:
+Define models with performance interfaces and GORM-like relationship tags:
 
 ```go
 type User struct {
-    ID    uint   `db:"ID"`
-    Name  string `db:"Name"`
-    Email string `db:"Email"`
-    Age   int    `db:"Age"`
+    ID       uint   `db:"ID"`
+    Name     string `db:"Name"`
+    Email    string `db:"Email"`
+    Age      int    `db:"Age"`
+    
+    // One-to-One relationship
+    ProfileID uint     `db:"ProfileID"`
+    Profile   *Profile `db:"-" join:"one2one,table:Profile,foreign_key:UserID"`
+    
+    // One-to-Many relationship  
+    Orders    []*Order `db:"-" join:"one2many,table:Order,foreign_key:UserID"`
+    
+    // Many-to-Many relationship
+    Tags      []*Tag   `db:"-" join:"many2many,table:Tag,through:UserTag,pivot_local_key:UserID,pivot_foreign_key:TagID"`
+    
+    // Polymorphic relationship
+    Comments  []*Comment `db:"-" join:"polymorphic,table:Comment,id:CommentableID,type:CommentableType,value:User"`
 }
 
-// TableNamer - eliminates reflection for table name
+// Performance interfaces - eliminates reflection
 func (User) TableName() string {
     return "User"
 }
 
-// IDGetter - eliminates reflection for ID access
 func (u User) GetID() interface{} {
     return u.ID
 }
 
-// IDSetter - eliminates reflection for ID setting
 func (u *User) SetID(id interface{}) error {
     if idVal, ok := id.(uint64); ok {
         u.ID = uint(idVal)
@@ -57,7 +68,6 @@ func (u *User) SetID(id interface{}) error {
     return fmt.Errorf("invalid ID type")
 }
 
-// FieldMapper - eliminates reflection for CRUD operations
 func (u User) GetFieldMap() map[string]interface{} {
     return map[string]interface{}{
         "ID":    u.ID,
@@ -68,7 +78,7 @@ func (u User) GetFieldMap() map[string]interface{} {
 }
 ```
 
-### Standard Model
+### Simple Model
 
 Models without interfaces still work perfectly:
 
@@ -84,7 +94,120 @@ func (Product) TableName() string {
 }
 ```
 
-## 📖 CRUD Examples
+## 🔗 Relationship Configuration
+
+### Three-Tier Approach for Maximum Flexibility
+
+The system provides three ways to define relationships, with automatic fallback:
+
+1. **Struct Tags** (Recommended) - GORM-like relationship definitions
+2. **Custom JoinRegistry** - For complex relationships  
+3. **Automatic Joins** - Simple naming convention fallback
+
+### 1. Struct Tag-Based Relationships (Recommended)
+
+Define relationships directly in your struct tags, similar to GORM:
+
+#### One-to-One
+```go
+Profile *Profile `db:"-" join:"one2one,table:Profile,foreign_key:UserID"`
+```
+**Generated SQL:**
+```sql
+LEFT JOIN Profile ON User.ID = Profile.UserID
+```
+
+#### One-to-Many
+```go
+Orders []*Order `db:"-" join:"one2many,table:Order,foreign_key:UserID"`
+```
+**Generated SQL:**
+```sql
+LEFT JOIN Order ON User.ID = Order.UserID
+```
+
+#### Many-to-Many
+```go
+Tags []*Tag `db:"-" join:"many2many,table:Tag,through:UserTag,pivot_local_key:UserID,pivot_foreign_key:TagID"`
+```
+**Generated SQL:**
+```sql
+LEFT JOIN UserTag ON User.ID = UserTag.UserID
+LEFT JOIN Tag ON UserTag.TagID = Tag.ID
+```
+
+#### Polymorphic
+```go
+Comments []*Comment `db:"-" join:"polymorphic,table:Comment,id:CommentableID,type:CommentableType,value:User"`
+```
+**Generated SQL:**
+```sql
+LEFT JOIN Comment ON User.ID = Comment.CommentableID
+WHERE Comment.CommentableType = 'User'
+```
+
+#### Tag Parameters Reference
+
+- `table`: Target table name (auto-inferred from field type if not specified)
+- `local_key`: Local table key (defaults to "ID")
+- `foreign_key`: Foreign table key (defaults to FieldName + "ID")
+- `through` / `pivot_table`: Junction table for many-to-many
+- `pivot_local_key`: Local key in junction table (defaults to "UserID")
+- `pivot_foreign_key`: Foreign key in junction table (defaults to FieldName + "ID")
+- `id` / `polymorphic_id`: Polymorphic ID field
+- `type` / `polymorphic_type`: Polymorphic type field
+- `value` / `polymorphic_value`: Polymorphic type value
+- `join_type`: JOIN type (LEFT, INNER, RIGHT - defaults to LEFT)
+
+### 2. Custom JoinRegistry (Advanced)
+
+For complex relationships or when you need full control:
+
+```go
+func CreateUserJoinRegistry() *queryapi.JoinRegistry {
+    registry := queryapi.NewJoinRegistry()
+    
+    // Complex One-to-One with custom table name
+    registry.Register("Profile", queryapi.JoinConfig{
+        Type:       queryapi.OneToOne,
+        Table:      "UserProfile",      // Custom table name
+        LocalKey:   "ID",
+        ForeignKey: "UserID",
+        JoinType:   queryapi.InnerJoin, // INNER JOIN instead of LEFT
+    })
+    
+    // Many-to-Many with custom junction table
+    registry.Register("Role", queryapi.JoinConfig{
+        Type:            queryapi.ManyToMany,
+        Table:           "Role",
+        PivotTable:      "UserRoleMapping", // Custom junction table
+        PivotLocalKey:   "UserID",
+        PivotForeignKey: "RoleID",
+        JoinType:        queryapi.LeftJoin,
+    })
+    
+    return registry
+}
+```
+
+### 3. Automatic Joins (Fallback)
+
+When no struct tags or custom JoinRegistry is provided, the system uses naming conventions:
+
+**Automatic join assumptions:**
+- Relationship Type: Always `OneToMany`
+- Table Name: Same as preload name (e.g., "Profile", "Order")
+- Local Key: Always "ID"
+- Foreign Key: PreloadName + "ID" (e.g., "ProfileID", "OrderID")
+- Join Type: Always `LEFT JOIN`
+
+### When to Use Each Approach
+
+- **Struct Tags**: GORM-like simplicity, self-documenting code, recommended for most cases
+- **Custom JoinRegistry**: Complex relationships, runtime configuration, override struct tags
+- **Automatic Joins**: Simple conventions, prototyping, quick development
+
+## 📖 CRUD Operations
 
 ### Create
 
@@ -115,58 +238,34 @@ if err != nil {
 } else {
     fmt.Printf("Read user: %+v\n", user)
 }
+
+// Read with preloads (uses struct tags automatically)
+var userWithRelations User
+err := mysql.Read(database, &userWithRelations, 1, "Profile", "Orders")
 ```
 
-### Update (Full Record)
+### Update
 
 ```go
 // Update full record (uses FieldMapper + IDGetter interfaces)
 user.Age = 31
 err := mysql.Update(database, &user)
-if err != nil {
-    log.Printf("Update error: %v", err)
-} else {
-    fmt.Println("User updated successfully")
-}
-```
 
-### Update (Partial)
-
-```go
 // Partial update with field map (uses IDGetter interface)
 err := mysql.Update(database, &User{ID: 1}, map[string]any{
     "Email": "john.doe@example.com",
     "Age":   32,
 })
-if err != nil {
-    log.Printf("Partial update error: %v", err)
-} else {
-    fmt.Println("User updated with field map")
-}
 ```
 
 ### Delete
 
 ```go
-// Delete single record (uses TableName + IDGetter interfaces)
+// Delete single record
 err := mysql.Delete(database, &user)
-if err != nil {
-    log.Printf("Delete error: %v", err)
-} else {
-    fmt.Println("User deleted successfully")
-}
-```
 
-### Bulk Delete
-
-```go
-// Delete multiple records by IDs (uses TableName interface)
+// Bulk delete by IDs
 err := mysql.DeleteAll(database, &User{}, 2, 3, 4)
-if err != nil {
-    log.Printf("Bulk delete error: %v", err)
-} else {
-    fmt.Println("Users deleted successfully")
-}
 ```
 
 ## 🔍 Query Examples
@@ -186,11 +285,41 @@ query := &qapi.Query{
 }
 
 count, err := mysql.List(database, &users, query)
-if err != nil {
-    log.Printf("List error: %v", err)
-} else {
-    fmt.Printf("Found %d users\n", count)
+```
+
+### Query with Relationships (Using Struct Tags)
+
+```go
+// Simple - struct tags handle everything automatically
+query := &qapi.Query{
+    Preloads: []string{"Profile", "Orders", "Tags"},
+    Filter: []qapi.Filter{
+        {Name: "Profile.Bio", Value: "developer", Operation: qapi.LK},
+        {Name: "Orders.Status", Value: "active", Operation: qapi.EQ},
+        {Name: "Orders.Total", Value: "100", Operation: qapi.GT},
+    },
+    Limit: 10,
 }
+
+var users []User
+count, err := mysql.List(database, &users, query)
+```
+
+### Query with Custom JoinRegistry
+
+```go
+// Override struct tags with custom registry
+query := &qapi.Query{
+    Preloads:     []string{"Profile", "Role"},
+    JoinRegistry: CreateUserJoinRegistry(), // Custom configuration
+    Filter: []qapi.Filter{
+        {Name: "Role.Name", Value: "admin", Operation: qapi.EQ},
+    },
+    Limit: 10,
+}
+
+var users []User
+count, err := mysql.List(database, &users, query)
 ```
 
 ### Advanced Query with Multiple Filters
@@ -211,41 +340,6 @@ query := &qapi.Query{
 
 var users []User
 count, err := mysql.List(database, &users, query)
-```
-
-### Query with Relationships (Joins)
-
-```go
-// Set up join registry for relationship queries
-joinRegistry := queryapi.NewJoinRegistry()
-joinRegistry.Register("Profile", queryapi.JoinConfig{
-    Type:       queryapi.OneToOne,
-    Table:      "Profile",
-    LocalKey:   "ID",
-    ForeignKey: "UserID",
-})
-
-// Query with relationship filters
-complexQuery := &qapi.Query{
-    Filter: []qapi.Filter{
-        {Name: "Name", Value: "John", Operation: qapi.LK},
-        {Name: "Profile.Bio", Value: "developer", Operation: qapi.LK},
-    },
-    Sort:  []string{"Name ASC"},
-    Limit: 20,
-}
-
-options := &queryapi.QueryOptions{
-    JoinRegistry: joinRegistry,
-}
-
-result, err := queryapi.GenerateDBWithOptions(complexQuery, User{}, options)
-if err != nil {
-    log.Printf("GenerateDBWithOptions error: %v", err)
-} else {
-    fmt.Printf("Generated query: %s\n", result.Query)
-    fmt.Printf("Query args: %v\n", result.Args)
-}
 ```
 
 ## 🔧 Advanced Examples
@@ -328,71 +422,39 @@ query := `
 err := database.Select(&results, query, time.Now().AddDate(0, -1, 0))
 ```
 
-## 🔗 Relationship Examples
+## 🔄 Migration from GORM
 
-### One-to-One Relationship
-
+### Before (GORM)
 ```go
-joinRegistry := queryapi.NewJoinRegistry()
-joinRegistry.Register("Profile", queryapi.JoinConfig{
-    Type:       queryapi.OneToOne,
-    Table:      "Profile",
-    LocalKey:   "ID",        // User.ID
-    ForeignKey: "UserID",    // Profile.UserID
-})
+type User struct {
+    ID         uint        `gorm:"primary_key"`
+    Profile    Profile     `gorm:"foreignKey:UserID"`
+    Orders     []Order     `gorm:"foreignKey:UserID"`
+    Tags       []*Tag      `gorm:"many2many:user_tags;"`
+}
 
+// Query
+db.Preload("Profile").Preload("Orders").Find(&users)
+db.Joins("Profile").Where("Profile.Bio LIKE ?", "%developer%").Find(&users)
+```
+
+### After (sqlx with struct tags)
+```go
+type User struct {
+    ID       uint     `db:"ID"`
+    Profile  *Profile `db:"-" join:"one2one,foreign_key:UserID"`
+    Orders   []*Order `db:"-" join:"one2many,foreign_key:UserID"`
+    Tags     []*Tag   `db:"-" join:"many2many,through:UserTag"`
+}
+
+// Query - much cleaner!
 query := &qapi.Query{
+    Preloads: []string{"Profile", "Orders"},
     Filter: []qapi.Filter{
         {Name: "Profile.Bio", Value: "developer", Operation: qapi.LK},
     },
 }
-
-options := &queryapi.QueryOptions{JoinRegistry: joinRegistry}
-result, err := queryapi.GenerateDBWithOptions(query, User{}, options)
-```
-
-### Many-to-Many Relationship
-
-```go
-joinRegistry := queryapi.NewJoinRegistry()
-joinRegistry.Register("Corporate", queryapi.JoinConfig{
-    Type:            queryapi.ManyToMany,
-    Table:           "Corporate",
-    PivotTable:      "UserCorporate",
-    PivotLocalKey:   "UserID",       // UserCorporate.UserID
-    PivotForeignKey: "CorporateID",  // UserCorporate.CorporateID
-})
-
-query := &qapi.Query{
-    Filter: []qapi.Filter{
-        {Name: "Corporate.Name", Value: "TechCorp", Operation: qapi.EQ},
-    },
-}
-
-options := &queryapi.QueryOptions{JoinRegistry: joinRegistry}
-result, err := queryapi.GenerateDBWithOptions(query, User{}, options)
-```
-
-### Polymorphic Relationship
-
-```go
-joinRegistry := queryapi.NewJoinRegistry()
-joinRegistry.Register("Comment", queryapi.JoinConfig{
-    Type:             queryapi.Polymorphic,
-    Table:            "Comment",
-    PolymorphicID:    "CommentableID",
-    PolymorphicType:  "CommentableType",
-    PolymorphicValue: "User",
-})
-
-query := &qapi.Query{
-    Filter: []qapi.Filter{
-        {Name: "Comment.Content", Value: "great", Operation: qapi.LK},
-    },
-}
-
-options := &queryapi.QueryOptions{JoinRegistry: joinRegistry}
-result, err := queryapi.GenerateDBWithOptions(query, User{}, options)
+count, err := mysql.List(DB, &users, query)
 ```
 
 ## 💡 Best Practices
@@ -407,20 +469,36 @@ func (m *Model) SetID(id interface{}) error { ... }
 func (m Model) GetFieldMap() map[string]interface{} { ... }
 ```
 
-### 2. Choose the Right Query Method
+### 2. Use Struct Tags for Most Cases
+
+```go
+// Recommended approach - self-documenting and GORM-like
+type User struct {
+    ID      uint     `db:"ID"`
+    Profile *Profile `db:"-" join:"one2one,foreign_key:UserID"`
+    Orders  []*Order `db:"-" join:"one2many,foreign_key:UserID"`
+}
+```
+
+### 3. Choose the Right Query Method
 
 ```go
 // For simple queries without relationships
 mysql.List(db, &users, query)
 
-// For complex queries with joins
-queryapi.GenerateDBWithOptions(query, User{}, options)
+// For queries with struct tag relationships (recommended)
+query.Preloads = []string{"Profile", "Orders"}
+mysql.List(db, &users, query)
+
+// For complex custom relationships
+query.JoinRegistry = customRegistry
+mysql.List(db, &users, query)
 
 // For very complex custom queries
 db.Select(&results, customSQL, args...)
 ```
 
-### 3. Handle Errors Properly
+### 4. Handle Errors Properly
 
 ```go
 import "database/sql"
@@ -435,7 +513,7 @@ if errors.Is(err, sql.ErrNoRows) {
 }
 ```
 
-### 4. Use Transactions for Related Operations
+### 5. Use Transactions for Related Operations
 
 ```go
 tx, err := db.Beginx()
@@ -451,10 +529,10 @@ mysql.Create(tx, &profile)
 return tx.Commit()
 ```
 
-### 5. Set Up Join Registry Once
+### 6. Set Up Join Registry Once (When Needed)
 
 ```go
-// Create at application startup and reuse
+// Create at application startup and reuse for complex cases
 var globalJoinRegistry = setupJoinRegistry()
 
 func setupJoinRegistry() *queryapi.JoinRegistry {
@@ -467,17 +545,39 @@ func setupJoinRegistry() *queryapi.JoinRegistry {
         ForeignKey: "UserID",
     })
     
-    registry.Register("Corporate", queryapi.JoinConfig{
-        Type:            queryapi.ManyToMany,
-        Table:           "Corporate",
-        PivotTable:      "UserCorporate",
-        PivotLocalKey:   "UserID",
-        PivotForeignKey: "CorporateID",
-    })
-    
     return registry
 }
 ```
+
+### 7. Naming Conventions
+
+Use singular, PascalCase for table and column names:
+```go
+type User struct {
+    ID        uint   `db:"ID"`
+    ProfileID uint   `db:"ProfileID"`
+}
+```
+
+### 8. Always Use db:"-" for Relationship Fields
+
+```go
+// Correct - excludes from direct database mapping
+Profile *Profile `db:"-" join:"one2one,foreign_key:UserID"`
+
+// Incorrect - would try to map as database column
+Profile *Profile `join:"one2one,foreign_key:UserID"`
+```
+
+## 🎯 Key Features
+
+- **GORM-like Preloads**: Familiar syntax with `Preloads: []string{"Profile", "Orders"}`
+- **Struct Tag Relationships**: Self-documenting relationship definitions
+- **Three-Tier Fallback**: Automatic fallback from custom → struct tags → automatic
+- **High Performance**: Optimized interfaces eliminate reflection overhead
+- **Type Safety**: Compile-time relationship validation
+- **Translation Support**: Seamless integration with translation system
+- **Clean API**: Simple function signatures with optional parameters
 
 ## 🔗 Related Documentation
 
