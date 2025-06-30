@@ -31,7 +31,7 @@ func List(DB *gorm.DB, records any, query *qapi.Query) (int, error) {
 	entityType, tableName := queryapi.GetTableName(records)
 
 	// CHECK: since entity used no need to manually add
-	// _, hasDeletedAt := entityType.FieldByName("DeletedAt")
+	_, hasDeletedAt := entityType.FieldByName("DeletedAt")
 	calculateCount := query.Offset > 0 || query.Limit > 0
 
 	// Get count
@@ -45,9 +45,9 @@ func List(DB *gorm.DB, records any, query *qapi.Query) (int, error) {
 
 	cDB := db
 	// CHECK: since entity used no need to manually add
-	// if hasDeletedAt {
-	// 	cDB.Where("`" + tableName + "`.`DeletedAt` is NULL")
-	// }
+	if hasDeletedAt {
+		cDB = cDB.Where("`" + tableName + "`.`DeletedAt` IS NULL")
+	}
 
 	// check if the count is needed as seperate query (if there is a pagination)
 	if calculateCount {
