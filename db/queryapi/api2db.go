@@ -67,7 +67,20 @@ GetTableName reads the table name of the given interface{}
 func GetTableName(e any) (reflect.Type, string) {
 	typ := reflection.ExtractRealTypeField(reflect.TypeOf(e))
 	if m, hasName := typ.MethodByName("TableName"); hasName {
-		res := m.Func.Call([]reflect.Value{reflect.ValueOf(e)})
+
+		val := reflect.ValueOf(e)
+		for val.Kind() == reflect.Ptr || val.Kind() == reflect.Slice {
+			if val.Kind() == reflect.Ptr && !val.IsNil() {
+				val = val.Elem()
+			} else if val.Kind() == reflect.Slice && val.Len() > 0 {
+				val = val.Index(0)
+			} else {
+				break
+			}
+		}
+		val = reflect.New(typ).Elem()
+
+		res := m.Func.Call([]reflect.Value{val})
 		return typ, res[0].String()
 	}
 	return typ, typ.Name()
