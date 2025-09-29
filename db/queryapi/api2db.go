@@ -65,6 +65,9 @@ func GenerateDB(q *qapi.Query, db *gorm.DB, entity interface{}) (*gorm.DB, error
 GetTableName reads the table name of the given interface{}
 */
 func GetTableName(e any) (reflect.Type, string) {
+	// TODO: fix pointer receivers for TableName
+	// doesn't work with pointer receivers: func (p *Playable) TableName() string
+	// works with value receivers: func (Playable) TableName() string {
 	typ := reflection.ExtractRealTypeField(reflect.TypeOf(e))
 	if m, hasName := typ.MethodByName("TableName"); hasName {
 
