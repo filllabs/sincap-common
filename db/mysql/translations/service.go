@@ -293,9 +293,37 @@ func handleTranslatedFilters(db *gorm.DB, query *qapi.Query, langCode string,
 			for _, multiLangField := range multiLangFields {
 				if v.Name == multiLangField {
 					jsonPath := fmt.Sprintf("$.\"%s\"", langCode)
-					// For translation fields, we typically use LIKE operations
-					db = db.Where("LOWER(JSON_UNQUOTE(JSON_EXTRACT("+v.Name+", ?))) LIKE LOWER(?)",
-						jsonPath, "%"+v.Value+"%")
+					// For translation fields, convert the value and use appropriate operation
+					var convertedValue interface{}
+					field, fieldFound := entityType.FieldByName(v.Name)
+					if fieldFound {
+						fieldKind := reflection.ExtractRealTypeField(field.Type).Kind()
+						var values []interface{}
+						var err error
+						values, err = util.ConvertValue(v, entityType, fieldKind, values, v.Value)
+						if err != nil || len(values) == 0 {
+							convertedValue = v.Value
+						} else {
+							convertedValue = values[0]
+						}
+					} else {
+						convertedValue = v.Value
+					}
+
+					// Apply the operation to the JSON field
+					switch v.Operation {
+					case qapi.EQ:
+						db = db.Where("JSON_UNQUOTE(JSON_EXTRACT("+v.Name+", ?)) = ?", jsonPath, convertedValue)
+					case qapi.NEQ:
+						db = db.Where("JSON_UNQUOTE(JSON_EXTRACT("+v.Name+", ?)) != ?", jsonPath, convertedValue)
+					case qapi.LK:
+						db = db.Where("LOWER(JSON_UNQUOTE(JSON_EXTRACT("+v.Name+", ?))) LIKE LOWER(?)",
+							jsonPath, "%"+fmt.Sprintf("%v", convertedValue)+"%")
+					default:
+						// Default to LIKE for translation fields
+						db = db.Where("LOWER(JSON_UNQUOTE(JSON_EXTRACT("+v.Name+", ?))) LIKE LOWER(?)",
+							jsonPath, "%"+fmt.Sprintf("%v", convertedValue)+"%")
+					}
 					handled = true
 					break
 				}
@@ -315,24 +343,67 @@ func handleTranslatedFilters(db *gorm.DB, query *qapi.Query, langCode string,
 func applyFilterOperation(db *gorm.DB, filter qapi.Filter, entityType reflect.Type) *gorm.DB {
 	// Get field information for type checking
 	field, fieldFound := entityType.FieldByName(filter.Name)
-	isDateTimeField := false
+	if !fieldFound {
+		// If field not found, use the value as-is
+		return applyFilterOperationWithValue(db, filter, filter.Value)
+	}
 
-	if fieldFound {
-		fieldType := field.Type
-		// Handle pointer types
-		if fieldType.Kind() == reflect.Ptr {
-			fieldType = fieldType.Elem()
+	// Get the field kind for conversion
+	fieldKind := reflection.ExtractRealTypeField(field.Type).Kind()
+
+	switch filter.Operation {
+	case qapi.IN:
+		// Handle IN operation with proper value conversion
+		var values []interface{}
+		var err error
+
+		// Split string values by |
+		inVals := strings.Split(filter.Value, "|")
+		for _, val := range inVals {
+			values, err = util.ConvertValue(filter, entityType, fieldKind, values, val)
+			if err != nil {
+				// If conversion fails, use original value
+				values = append(values, val)
+			}
 		}
-		// Check if it's a time.Time field
-		isDateTimeField = fieldType.String() == "time.Time"
+		db = db.Where("`"+filter.Name+"` IN ?", values)
+	case qapi.IN_ALT:
+		// Handle IN_ALT operation with proper value conversion
+		var values []interface{}
+		var err error
+
+		// Split string values by *
+		inVals := strings.Split(filter.Value, "*")
+		for _, val := range inVals {
+			values, err = util.ConvertValue(filter, entityType, fieldKind, values, val)
+			if err != nil {
+				// If conversion fails, use original value
+				values = append(values, val)
+			}
+		}
+		db = db.Where("`"+filter.Name+"` IN ?", values)
+	default:
+		// Handle other operations with proper value conversion
+		var values []interface{}
+		var err error
+		values, err = util.ConvertValue(filter, entityType, fieldKind, values, filter.Value)
+
+		var convertedValue interface{}
+		if err != nil || len(values) == 0 {
+			// If conversion fails, use original value
+			convertedValue = filter.Value
+		} else {
+			convertedValue = values[0]
+		}
+
+		return applyFilterOperationWithValue(db, filter, convertedValue)
 	}
 
-	// Convert Unix timestamp to datetime format for date/time fields
-	value := filter.Value
-	if isDateTimeField && isUnixTimestamp(filter.Value) {
-		value = convertUnixTimestampToDatetime(filter.Value)
-	}
+	return db
+}
 
+// applyFilterOperationWithValue applies the filter operation with a converted value
+func applyFilterOperationWithValue(db *gorm.DB, filter qapi.Filter, value interface{}) *gorm.DB {
 	switch filter.Operation {
 	case qapi.EQ:
 		db = db.Where("`"+filter.Name+"` = ?", value)
@@ -348,48 +419,10 @@ func applyFilterOperation(db *gorm.DB, filter qapi.Filter, entityType reflect.Ty
 		db = db.Where("`"+filter.Name+"` >= ?", value)
 	case qapi.LK:
 		// LIKE operation - use LOWER for case-insensitive search
-		db = db.Where("LOWER(`"+filter.Name+"`) LIKE LOWER(?)", "%"+filter.Value+"%")
-	case qapi.IN:
-		// IN operation - split by | and use IN clause
-		values := strings.Split(filter.Value, "|")
-		if isDateTimeField {
-			// Convert all timestamp values for date fields
-			convertedValues := make([]string, len(values))
-			for i, v := range values {
-				if isUnixTimestamp(v) {
-					convertedValues[i] = convertUnixTimestampToDatetime(v)
-				} else {
-					convertedValues[i] = v
-				}
-			}
-			db = db.Where("`"+filter.Name+"` IN ?", convertedValues)
-		} else {
-			db = db.Where("`"+filter.Name+"` IN ?", values)
-		}
-	case qapi.IN_ALT:
-		// Alternative IN operation - split by | and use IN clause
-		values := strings.Split(filter.Value, "|")
-		if isDateTimeField {
-			// Convert all timestamp values for date fields
-			convertedValues := make([]string, len(values))
-			for i, v := range values {
-				if isUnixTimestamp(v) {
-					convertedValues[i] = convertUnixTimestampToDatetime(v)
-				} else {
-					convertedValues[i] = v
-				}
-			}
-			db = db.Where("`"+filter.Name+"` IN ?", convertedValues)
-		} else {
-			db = db.Where("`"+filter.Name+"` IN ?", values)
-		}
+		db = db.Where("LOWER(`"+filter.Name+"`) LIKE LOWER(?)", "%"+fmt.Sprintf("%v", value)+"%")
 	default:
-		// Default behavior: for date/time fields use exact match, for others use LIKE
-		if isDateTimeField {
-			db = db.Where("`"+filter.Name+"` = ?", value)
-		} else {
-			db = db.Where("LOWER(`"+filter.Name+"`) LIKE LOWER(?)", "%"+filter.Value+"%")
-		}
+		// Default behavior: exact match
+		db = db.Where("`"+filter.Name+"` = ?", value)
 	}
 
 	return db

@@ -72,7 +72,9 @@ func ConvertValue(filter qapi.Filter, typ reflect.Type, kind reflect.Kind, value
 			values = append(values, i)
 		}
 	case reflect.Bool:
-		values = append(values, value.(string) == "true")
+		strVal := value.(string)
+		boolVal := strVal == "true" || strVal == "1"
+		values = append(values, boolVal)
 	case timeKind:
 		i, err := strconv.ParseInt(value.(string), 10, 64)
 		if err != nil {
